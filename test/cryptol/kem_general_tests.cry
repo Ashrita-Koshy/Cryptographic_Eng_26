@@ -1,0 +1,3 @@
+module kem_general_tests where
+
+import kem_general
