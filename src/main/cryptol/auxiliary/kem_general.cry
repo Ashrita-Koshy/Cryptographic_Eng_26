@@ -1,0 +1,24 @@
+//File - kem_general.cry
+//Author - Nolan Attreed
+//Description - Contains Algorithms defined in section 4.2 of FIPS 203
+
+module kem_general where
+
+//Function: BitsToBytes
+//Constraints: Array must contain at least one byte
+//Inputs: Bit array b of size 8*l
+//Outputs: Byte array B of size l
+BitsToBytes : {l} (fin l, l >= 1) => [8*l]Bit -> [l][8]
+BitsToBytes b = [computeByte j | j <- [0 .. l-1]]
+    where
+        computeByte : Integer -> [8]
+        computeByte j = sum[if b @ (8*j + k) then (1 : [8]) << k else 0 | k <- [0 .. 7]]
+
+BytesToBits : {l} (fin l, l >= 1) => [l][8] -> [8*l]Bit
+BytesToBits B = join [computeBits byte | byte <- B]
+    where  
+        computeBits : [8] -> [8]Bit
+        computeBits byte = [computeBit j | j <- [0 .. 7]]
+            where
+                computeBit : Integer -> Bit
+                computeBit j = byte ! j
