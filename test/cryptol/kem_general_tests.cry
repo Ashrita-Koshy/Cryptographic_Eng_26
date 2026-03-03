@@ -35,18 +35,40 @@ BitsToBytes_Example_15 = BitsToBytes [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,
 
 BytesToBits_Example_1 : Bool
 BytesToBits_Example_1 = BytesToBits [0x8B] == [1,1,0,1,0,0,0,1]
+BytesToBits_Example_2 : Bool
+BytesToBits_Example_2 = BytesToBits [0xA5] == [1,0,1,0,0,1,0,1]
+BytesToBits_Example_3 : Bool
+BytesToBits_Example_3 = BytesToBits [0x01,0x02] == [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0]
+BytesToBits_Example_4 : Bool
+BytesToBits_Example_4 = BytesToBits [0xFF,0x00] == [1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0]
+BytesToBits_Example_5 : Bool
+BytesToBits_Example_5 = BytesToBits [0xAB,0xCD,0xEF] == [1,1,0,1,0,1,0,1,1,0,1,1,0,0,1,1,1,1,1,1,0,1,1,1]
+BytesToBits_Example_6 : Bool
+BytesToBits_Example_6 = BytesToBits [0x00] == [0,0,0,0,0,0,0,0]
+BytesToBits_Example_7 : Bool
+BytesToBits_Example_7 = BytesToBits [0x01,0x01] == [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0]
+BytesToBits_Example_8 : Bool
+BytesToBits_Example_8 = BytesToBits [0x0F,0xF0] == [1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1]
+BytesToBits_Example_9 : Bool
+BytesToBits_Example_9 = BytesToBits [0x96,0x69] == [0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0]
+BytesToBits_Example_10 : Bool
+BytesToBits_Example_10 = BytesToBits [0x55] == [1,0,1,0,1,0,1,0]
+BytesToBits_Example_11 : Bool
+BytesToBits_Example_11 = BytesToBits [0x33,0xCC,0x31] == [1,1,0,0,1,1,0,0,0,0,1,1,0,0,1,1,1,0,0,0,1,1,0,0]
+BytesToBits_Example_12 : Bool
+BytesToBits_Example_12 = BytesToBits [0xFE,0x7F] == [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0]
+BytesToBits_Example_13 : Bool
+BytesToBits_Example_13 = BytesToBits [0x48,0x12] == [0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0]
+BytesToBits_Example_14 : Bool
+BytesToBits_Example_14 = BytesToBits [0xED,0xBA,0x75] == [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1,0,1,1,1,0]
+BytesToBits_Example_15 : Bool
+BytesToBits_Example_15 = BytesToBits [0xAA,0xAA,0xAA,0xAA] == [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]
 
 
 // BitsToBytes and BytesToBits should be inverses of each other
-//prop_roundTrip_BitsToBytes : {l} (fin l, l >= 1) => [l][8] -> Bool
-//prop_roundTrip_BitsToBytes B = BitsToBytes (BytesToBits B) == B
+BitsToBytes_Inversion : {l} (fin l, l >= 1, 32 >= width(l-1)) => [l][8] -> Bool
+BitsToBytes_Inversion B  = BitsToBytes (BytesToBits B ) == B
 
-//prop_roundTrip_BytesToBits : {l} (fin l, l >= 1) => [8*l]Bit -> Bool
-//prop_roundTrip_BytesToBits b = BytesToBits (BitsToBytes b) == b
-
-// ============================================================
-// Run all fixed tests at once
-// ============================================================
 allTests : Bool
 allTests = BitsToBytes_Example_1 /\ BitsToBytes_Example_2 /\ BitsToBytes_Example_3
             /\ BitsToBytes_Example_4 /\ BitsToBytes_Example_5
@@ -55,4 +77,13 @@ allTests = BitsToBytes_Example_1 /\ BitsToBytes_Example_2 /\ BitsToBytes_Example
             /\ BitsToBytes_Example_10 /\ BitsToBytes_Example_11 
             /\ BitsToBytes_Example_12 /\ BitsToBytes_Example_13 
             /\ BitsToBytes_Example_14 /\ BitsToBytes_Example_15
+            /\ BytesToBits_Example_1 /\ BitsToBytes_Example_2
+            /\ BytesToBits_Example_3 /\ BitsToBytes_Example_3
+            /\ BytesToBits_Example_5 /\ BitsToBytes_Example_6
+            /\ BytesToBits_Example_7 /\ BitsToBytes_Example_8
+            /\ BytesToBits_Example_9 /\ BitsToBytes_Example_10
+            /\ BytesToBits_Example_11 /\ BitsToBytes_Example_12
+            /\ BytesToBits_Example_13 /\ BitsToBytes_Example_14
+            /\ BytesToBits_Example_15
+
 

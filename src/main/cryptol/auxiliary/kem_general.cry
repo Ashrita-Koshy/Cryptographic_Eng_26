@@ -8,10 +8,10 @@ module kem_general where
 //Constraints: Array must contain at least one byte
 //Inputs: Bit array b of size 8*l
 //Outputs: Byte array B of size l
-BitsToBytes : {l} (fin l, l >= 1) => [8*l]Bit -> [l][8]
+BitsToBytes : {l} (fin l, l >= 1, 32 >= width(l-1)) => [8*l]Bit -> [l][8]
 BitsToBytes b = [computeByte j | j <- [0 .. l-1]]
     where
-        computeByte : Integer -> [8]
+        computeByte : [32] -> [8]
         computeByte j = sum[if b @ (8*j + k) then (1 : [8]) << k else 0 | k <- [0 .. 7]]
 
 BytesToBits : {l} (fin l, l >= 1) => [l][8] -> [8*l]Bit
@@ -20,5 +20,5 @@ BytesToBits B = join [computeBits byte | byte <- B]
         computeBits : [8] -> [8]Bit
         computeBits byte = [computeBit j | j <- [0 .. 7]]
             where
-                computeBit : Integer -> Bit
+                computeBit : [3] -> Bit
                 computeBit j = byte ! j
