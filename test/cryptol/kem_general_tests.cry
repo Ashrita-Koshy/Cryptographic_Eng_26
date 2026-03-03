@@ -1,3 +1,58 @@
 module kem_general_tests where
 
 import kem_general
+
+BitsToBytes_Example_1: Bool
+BitsToBytes_Example_1 = BitsToBytes [1,1,0,1,0,0,0,1] == [0x8B]
+BitsToBytes_Example_2: Bool
+BitsToBytes_Example_2 = BitsToBytes [1,0,1,0,0,1,0,1] == [0xA5]
+BitsToBytes_Example_3: Bool
+BitsToBytes_Example_3 = BitsToBytes [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0] == [0x01,0x02]
+BitsToBytes_Example_4: Bool
+BitsToBytes_Example_4 = BitsToBytes [1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0] == [0xFF,0x00]
+BitsToBytes_Example_5: Bool
+BitsToBytes_Example_5 = BitsToBytes [1,1,0,1,0,1,0,1,1,0,1,1,0,0,1,1,1,1,1,1,0,1,1,1] == [0xAB,0xCD,0xEF]
+BitsToBytes_Example_6: Bool
+BitsToBytes_Example_6 = BitsToBytes [0,0,0,0,0,0,0,0] == [0x00]
+BitsToBytes_Example_7: Bool
+BitsToBytes_Example_7 = BitsToBytes [1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0] == [0x01,0x01]
+BitsToBytes_Example_8: Bool
+BitsToBytes_Example_8 = BitsToBytes [1,1,1,1,0,0,0,0,0,0,0,0,1,1,1,1] == [0x0F,0xF0]
+BitsToBytes_Example_9: Bool
+BitsToBytes_Example_9 = BitsToBytes [0,1,1,0,1,0,0,1,1,0,0,1,0,1,1,0] == [0x96,0x69]
+BitsToBytes_Example_10: Bool
+BitsToBytes_Example_10 = BitsToBytes [1,0,1,0,1,0,1,0] == [0x55]
+BitsToBytes_Example_11: Bool
+BitsToBytes_Example_11 = BitsToBytes [0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0] == [0xFE,0x7F]
+BitsToBytes_Example_12: Bool
+BitsToBytes_Example_12 = BitsToBytes [1,1,0,0,1,1,0,0,0,0,1,1,0,0,1,1,1,0,0,0,1,1,0,0] == [0x33,0xCC,0x31]
+BitsToBytes_Example_13: Bool
+BitsToBytes_Example_13 = BitsToBytes [0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0] == [0x48,0x12]
+BitsToBytes_Example_14: Bool
+BitsToBytes_Example_14 = BitsToBytes [1,0,1,1,0,1,1,1,0,1,0,1,1,1,0,1,1,0,1,0,1,1,1,0] == [0xED,0xBA,0x75]
+BitsToBytes_Example_15: Bool
+BitsToBytes_Example_15 = BitsToBytes [0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1] == [0xAA,0xAA,0xAA,0xAA]
+
+BytesToBits_Example_1 : Bool
+BytesToBits_Example_1 = BytesToBits [0x8B] == [1,1,0,1,0,0,0,1]
+
+
+// BitsToBytes and BytesToBits should be inverses of each other
+//prop_roundTrip_BitsToBytes : {l} (fin l, l >= 1) => [l][8] -> Bool
+//prop_roundTrip_BitsToBytes B = BitsToBytes (BytesToBits B) == B
+
+//prop_roundTrip_BytesToBits : {l} (fin l, l >= 1) => [8*l]Bit -> Bool
+//prop_roundTrip_BytesToBits b = BytesToBits (BitsToBytes b) == b
+
+// ============================================================
+// Run all fixed tests at once
+// ============================================================
+allTests : Bool
+allTests = BitsToBytes_Example_1 /\ BitsToBytes_Example_2 /\ BitsToBytes_Example_3
+            /\ BitsToBytes_Example_4 /\ BitsToBytes_Example_5
+            /\ BitsToBytes_Example_6 /\ BitsToBytes_Example_7 
+            /\ BitsToBytes_Example_8 /\ BitsToBytes_Example_9 
+            /\ BitsToBytes_Example_10 /\ BitsToBytes_Example_11 
+            /\ BitsToBytes_Example_12 /\ BitsToBytes_Example_13 
+            /\ BitsToBytes_Example_14 /\ BitsToBytes_Example_15
+
