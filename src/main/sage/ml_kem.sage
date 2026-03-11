@@ -23,6 +23,24 @@ def Compress(d,x):
 def Decompress(d,y):
     return round(q*y/(2^d))
 
+def ByteEncode(d,F):
+    b = [0] * (n * d)
+    for i in range(n):
+        a = F[i]
+        for j in range(d):
+            b[((i*d) + j)] = a % 2
+            a = (a - b[((i*d) + j)])//2
+    return BitsToBytes(b)
+
+def ByteDecode(d,B):
+    m = 2^d if d < 12 else q
+    F = [0] * n
+    b = BytesToBits(B)
+    for i in range(n):
+        for j in range(d):
+            F[i] += (b[(i*d) + j] * 2^j) % m
+    return F
+
 
 
 
