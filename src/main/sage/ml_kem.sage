@@ -156,3 +156,42 @@ def MultiplyNTTs(f,g):
     return h
 
 
+# Helper functions
+def H(x):
+    return hashlib.sha3_256(x).digest()
+
+def G(x):
+    g = hashlib.sha3_512(x).digest()
+    K = g[:32]
+    r = g[32:]
+    return (K,r)
+
+def J(x):
+    return hashlib.shake_256(x).digest(32)
+
+# Algorithm 16
+def ML_KEM_KeyGen_internal(d,z):
+    (ekPKE,dkPKE) = K_PKE_KeyGen(d)         # Algorithm 13 used here
+    ek = ekPKE
+    dk = dkPKE + ek + H(ek) + z
+    return (ek,dk)
+
+# Algorithm 17
+def ML_KEM_Encaps_internal(ek,m):
+    (K,r) = G(m + H(ek))
+    c = K_PKE_Encrypt(ek,m,r)               # Algorithm 14 used here
+    return (K,c)
+
+# Algorithm 18
+def ML_KEM_Decaps_internal(dk,c):
+    dkPKE = dk[0 : 384*k]
+    ekPKE = dk[384*k : 768*k + 32]
+    h = dk[768*k + 32 : 768*k + 64]
+    z = dk[768*k + 64 : 768*k + 96]
+    m_prime = K_PKE_Decrypt(dkPKE, c)          # Algorithm 15 used here
+    K_prime, r_prime = G(m_prime + h)
+    K_bar = J(z + c)
+    c_prime = K_PKE_Encrypt(ekPKE, m_prime, r_prime)        # Algorithm 14 used here
+    if c != c_prime:
+        K_prime = K_bar
+    return K_prime
