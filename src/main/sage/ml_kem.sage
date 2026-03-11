@@ -1,8 +1,51 @@
 import hashlib
 
+#Symbols as defined in FIPS 203 - Sect. 2.3
 n = 256
 q = 3329
-zeta = 17
+
+#Parameter set for ML-KEM-1024 as defined in Sect. 8 Table 2.
+k = 4
+eta1 = 2
+eta2 = 2
+du = 11
+dv = 5
+
+#Precomputed Zeta powers as defined in FIPS 203 Appendix A
+zetaPowers = (1, 1729, 2580, 3289, 2642, 630, 1897, 848, 
+                1062, 1919, 193, 797, 2786, 3260, 569, 1746, 
+                296, 2447, 1339, 1476, 3046, 56, 2240, 1333, 
+                1426, 2094, 535, 2882, 2393, 2879, 1974, 821, 
+                289, 331, 3253, 1756, 1197, 2304, 2277, 2055, 
+                650, 1977, 2513, 632, 2865, 33, 1320, 1915, 
+                2319, 1435, 807, 452, 1438, 2868, 1534, 2402, 
+                2647, 2617, 1481, 648, 2474, 3110, 1227, 910, 
+                17, 2761, 583, 2649, 1637, 723, 2288, 1100, 
+                1409, 2662, 3281, 233, 756, 2156, 3015, 3050, 
+                1703, 1651, 2789, 1789, 1847, 952, 1461, 2687, 
+                939, 2308, 2437, 2388, 733, 2337, 268, 641, 
+                1584, 2298, 2037, 3220, 375, 2549, 2090, 1645, 
+                1063, 319, 2773, 757, 2099, 561, 2466, 2594, 
+                2804, 1092, 403, 1026, 1143, 2150, 2775, 886, 
+                1722, 1212, 1874, 1029, 2110, 2935, 885, 2154)
+
+#Precomputed Zeta odd powers as defined in FIPS 203 Appendix A
+zetaOddPowers = (17,  -17, 2761, -2761,  583,  -583, 2649, -2649,
+                1637, -1637,  723,  -723, 2288, -2288, 1100, -1100,
+                1409, -1409, 2662, -2662, 3281, -3281,  233,  -233,
+                756,  -756, 2156, -2156, 3015, -3015, 3050, -3050,
+                1703, -1703, 1651, -1651, 2789, -2789, 1789, -1789,
+                1847, -1847,  952,  -952, 1461, -1461, 2687, -2687,
+                939,  -939, 2308, -2308, 2437, -2437, 2388, -2388,
+                733,  -733, 2337, -2337,  268,  -268,  641,  -641,
+                1584, -1584, 2298, -2298, 2037, -2037, 3220, -3220,
+                375,  -375, 2549, -2549, 2090, -2090, 1645, -1645,
+                1063, -1063,  319,  -319, 2773, -2773,  757,  -757,
+                2099, -2099,  561,  -561, 2466, -2466, 2594, -2594,
+                2804, -2804, 1092, -1092,  403,  -403, 1026, -1026,
+                1143, -1143, 2150, -2150, 2775, -2775,  886,  -886,
+                1722, -1722, 1212, -1212, 1874, -1874, 1029, -1029,
+                2110, -2110, 2935, -2935,  885,  -885, 2154, -2154)
 
 def SHAKE128_Init():
     #ctx is a tuple containing the shake_128 object, and num of bytes already squeezed out
@@ -27,59 +70,37 @@ def XOF_Squeeze(ctx, length):
     return SHAKE128_Squeeze(ctx, length)
 
 def BitsToBytes(b):
-    B = [0] * (len(b) // 8)
-    for i in range(len(b)):
-        B[i // 8] = B[i // 8] + (b[i] * 2^(i % 8))
-    return B
+    return [sum(b[8*i + j] * 2^j for j in range(8)) for i in range(len(b) // 8) ]
 
 def BytesToBits(B):
-    b = [0] * (len(B) * 8)
-    C = list(B[:])
-    for i in range(len(B)):
-        for j in range(8):
-            b[(8*i + j)] = C[i] % 2
-            C[i] = C[i] // 2
-    return b
+    return [(B[i] >> j) & 1 for i in range(len(B)) for j in range(8)]
 
 def Compress(d,x):
-    return (round((2^d)*x/q)) % (2^d)
+    return ZZ(round((2^d / q) * x)) % 2^d
 
 def Decompress(d,y):
-    return round(q*y/(2^d))
+    return ZZ(round(q * y / 2^d))
 
 def ByteEncode(d,F):
-    b = [0] * (n * d)
-    for i in range(n):
-        a = F[i]
-        for j in range(d):
-            b[((i*d) + j)] = a % 2
-            a = (a - b[((i*d) + j)])//2
-    return BitsToBytes(b)
+    return BitsToBytes([(F[i] >> j) & 1 for i in range(n) for j in range(d)])
 
 def ByteDecode(d,B):
     m = 2^d if d < 12 else q
-    F = [0] * n
     b = BytesToBits(B)
-    for i in range(n):
-        for j in range(d):
-            F[i] += (b[(i*d) + j] * 2^j) % m
-    return F
+    return [sum((b[i*d + j] * 2^j) % m for j in range(d)) for i in range(n)]
 
 def SampleNTT(B):
     ctx = XOF_Init()
-    ctx = XOF_Absorb(ctx,B)
-    j = 0
-    a = [0] * n
-    while j < n:
-        ctx, C = XOF_Squeeze(ctx,3)
-        d1 = C[0] + n*(C[1] % 16)
+    ctx = XOF_Absorb(ctx, B)
+    a = []
+    while len(a) < n:
+        ctx, C = XOF_Squeeze(ctx, 3)
+        d1 = C[0] + n * (C[1] % 16)
         d2 = C[1]//16 + 16*C[2]
         if d1 < q:
-            a[j] = d1
-            j += 1
-        if (d2 < q) and (j < n):
-            a[j] = d2
-            j += 1
+            a.append(d1)
+        if d2 < q and len(a) < n:
+            a.append(d2)
     return a
 
 def SamplePolyCBD(eta,B):
@@ -91,6 +112,47 @@ def SamplePolyCBD(eta,B):
         f[i] = (x-y) % q
     return f
 
+def NTT(f):
+    f_hat = f[:]
+    i = 1
+    len = 128
+    while len >= 2:
+        for start in range(0,256,2*len):
+            zeta = zetaPowers[i]
+            i += 1
+            for j in range(start,(start + len)):
+                t = (zeta * f_hat[(j+len)]) % q
+                f_hat[(j + len)] = (f_hat[j] - t) % q
+                f_hat[j] = (f_hat[j] + t) % q
+        len = len >> 1
+    return f_hat
 
+def NTTInverse(f_hat):
+    f = f_hat[:]
+    i = 127
+    len = 2
+    while len <= 128:
+        for start in range(0,256,2*len):
+            zeta = zetaPowers[i]
+            i -= 1
+            for j in range(start,(start + len)):
+                t = f[j]
+                f[j] = (t + f[(j + len)]) % q
+                f[(j + len)] = (zeta*(f[(j + len)] - t)) % q
+        len = len << 1
+    for i in range(n):
+        f[i] = (f[i] * 3303) % q
+    return f
+
+def BaseCaseMultiply(a0,a1,b0,b1,gamma):
+    c0 = ((a0*b0) + (a1*b1*gamma)) % q
+    c1 = ((a0*b1) + (a1*b0)) % q
+    return (c0,c1)
+
+def MultiplyNTTs(f,g):
+    h = [0] * 256
+    for i in range(128):
+        h[2*i],h[2*i + 1] = BaseCaseMultiply(f[2*i],f[2*i + 1],g[2*i],g[2*i + 1],zetaOddPowers[i])
+    return h
 
 
