@@ -75,11 +75,15 @@ def BitsToBytes(b):
 def BytesToBits(B):
     return [(B[i] >> j) & 1 for i in range(len(B)) for j in range(8)]
 
+def Round(x,y):
+    offset = y//2 if ((x < 0) == (y < 0)) else (-1*y)//2
+    return (x + offset)//y
+
 def Compress(d,x):
-    return ZZ(round((2^d / q) * x)) % 2^d
+    return ZZ(Round(((2^d)*x),q)) % 2^d
 
 def Decompress(d,y):
-    return ZZ(round(q * y / 2^d))
+    return ZZ(Round((q * y),2^d))
 
 def ByteEncode(d,F):
     return BitsToBytes([(F[i] >> j) & 1 for i in range(n) for j in range(d)])
@@ -115,16 +119,16 @@ def SamplePolyCBD(eta,B):
 def NTT(f):
     f_hat = f[:]
     i = 1
-    len = 128
-    while len >= 2:
-        for start in range(0,256,2*len):
+    length = 128
+    while length >= 2:
+        for start in range(0,256,2*length):
             zeta = zetaPowers[i]
             i += 1
-            for j in range(start,(start + len)):
-                t = (zeta * f_hat[(j+len)]) % q
-                f_hat[(j + len)] = (f_hat[j] - t) % q
+            for j in range(start,(start + length)):
+                t = (zeta * f_hat[(j+length)]) % q
+                f_hat[(j + length)] = (f_hat[j] - t) % q
                 f_hat[j] = (f_hat[j] + t) % q
-        len = len >> 1
+        length = length >> 1
     return f_hat
 
 def NTTInverse(f_hat):
@@ -155,7 +159,6 @@ def MultiplyNTTs(f,g):
         h[2*i],h[2*i + 1] = BaseCaseMultiply(f[2*i],f[2*i + 1],g[2*i],g[2*i + 1],zetaOddPowers[i])
     return h
 
-
 # Helper functions
 def H(x):
     return hashlib.sha3_256(x).digest()
@@ -169,21 +172,142 @@ def G(x):
 def J(x):
     return hashlib.shake_256(x).digest(32)
 
+def PRF(eta,s,b):
+    return hashlib.shake_256(s + bytes([b])).digest(64*eta)
+
+def MultiplyNTTMatrix(A,u_hat,isTranspose = False):
+    w_hat = [[0] * n] * k
+    for i in range(k):
+        for j in range(k):
+            product = MultiplyNTTs(A[i][j],u_hat[j]) if not isTranspose else MultiplyNTTs(A[j][i],u_hat[j])
+            w_hat[i] = [(w_hat[i][c] + product[c]) % q for c in range(n)]
+    return w_hat
+
+def MultiplyNTTVector(u_hat,v_hat):
+    z_hat = [0] * n
+    for j in range(k):
+        product = MultiplyNTTs(u_hat[j],v_hat[j])
+        z_hat = [(z_hat[c] + product[c]) % q for c in range(n)]
+    return z_hat
+
+def AddNTTMatrix(u_hat,v_hat):
+    z_hat = [None] * k
+    for i in range(k):
+        z_hat[i] = [(u_hat[i][c] + v_hat[i][c]) % q for c in range(n)]
+    return z_hat
+
+def SubVector(u,v):
+    z = [None] * n
+    for i in range(n):
+        z[i] = (u[i] - v[i]) % q
+    return z
+
+def AddVector(u,v):
+    z = [None] * n
+    for i in range(n):
+        z[i] = (u[i] + v[i]) % q
+    return z
+
+def K_PKE_KeyGen(d):
+    rho, sigma = G(d + bytes([k]))
+    N = 0
+    A = [[None] * k for _ in range(k)]
+    for i in range(k):
+        for j in range(k):
+            A[i][j] = SampleNTT(rho + bytes([j,i]))
+    s = [None] * k
+    for i in range(k):
+        s[i] = SamplePolyCBD(eta1,PRF(eta1,sigma,N))
+        N += 1
+    e = [None] * k
+    for i in range(k):
+        e[i] = SamplePolyCBD(eta1,PRF(eta1,sigma,N))
+        N += 1
+    s_hat = [NTT(s[i]) for i in range(k)]
+    e_hat = [NTT(e[i]) for i in range(k)]
+    t_hat = MultiplyNTTMatrix(A,s_hat)
+    t_hat = AddNTTMatrix(t_hat,e_hat)
+    ek_PKE = b''
+    for poly in t_hat:
+        ek_PKE += bytes(ByteEncode(12,poly))
+    ek_PKE += rho
+    dk_PKE = b''
+    for poly in s_hat:
+        dk_PKE += bytes(ByteEncode(12,poly))
+    return ek_PKE, dk_PKE
+
+def K_PKE_Encrypt(ek_PKE,m,r):
+    N = 0
+    t_hat = [ByteDecode(12,ek_PKE[(384*i):(384*(i+1))]) for i in range(k)]
+    rho = ek_PKE[-(32):]
+    A = [[None] * k for _ in range(k)]
+    for i in range(k):
+        for j in range(k):
+            A[i][j] = SampleNTT(rho + bytes([j,i]))
+    y = [None] * k
+    for i in range(k):
+        y[i] = SamplePolyCBD(eta1,PRF(eta1,r,N))
+        N += 1
+    e1 = [None] * k
+    for i in range(k):
+        e1[i] = SamplePolyCBD(eta2,PRF(eta2,r,N))
+        N += 1
+    e2 = SamplePolyCBD(eta2,PRF(eta2,r,N))
+    y_hat = [NTT(y[i]) for i in range(k)]
+    u_hat = MultiplyNTTMatrix(A,y_hat,True)
+    u = [NTTInverse(poly) for poly in u_hat]
+    u = AddNTTMatrix(u,e1)
+    mu = [Decompress(1,val) for val in ByteDecode(1,m)]
+    upsilon = AddVector(AddVector(NTTInverse(MultiplyNTTVector(t_hat,y_hat)),e2),mu)
+    c1 = b''
+    for poly in u:
+        compression = [Compress(du,val) for val in poly]
+        c1 += bytes(ByteEncode(du,compression))
+    c2 = b''
+    c2 += bytes(ByteEncode(dv,[Compress(dv,val) for val in upsilon]))
+    return (c1 + c2)
+
+def K_PKE_Decrypt(dk_PKE,c):
+    c1 = c[:(32*du*k)]
+    c2 = c[(32*du*k):]
+    u_prime = [None] * k
+    for i in range(k):
+        f = ByteDecode(du,c1[(32*du*i):(32*du*(i+1))])
+        u_prime[i] = [Decompress(du,val) for val in f]
+    upsilon_prime = [Decompress(dv,val) for val in ByteDecode(dv,c2)]
+    s_hat = [None] * k
+    for i in range(k):
+        s_hat[i] = ByteDecode(12,dk_PKE[(32*12*i):(32*12*(i+1))])
+    u_prime_hat = [NTT(poly) for poly in u_prime]
+    w = SubVector(upsilon_prime,NTTInverse(MultiplyNTTVector(s_hat,u_prime_hat)))
+    compressed = [Compress(1,val) for val in w]
+    return bytes(ByteEncode(1,compressed))
+    
+
+d = os.urandom(32)
+ek, dk = K_PKE_KeyGen(d)
+m = bytes([i % 256 for i in range(32)])
+print(m)
+r = os.urandom(32)
+ciphertext = K_PKE_Encrypt(ek,m,r)
+plaintext = K_PKE_Decrypt(dk,ciphertext)
+print(plaintext)
+
 # Algorithm 16
-def ML_KEM_KeyGen_internal(d,z):
+def _ML_KEM_KeyGen_internal(d,z):
     (ekPKE,dkPKE) = K_PKE_KeyGen(d)         # Algorithm 13 used here
     ek = ekPKE
     dk = dkPKE + ek + H(ek) + z
     return (ek,dk)
 
 # Algorithm 17
-def ML_KEM_Encaps_internal(ek,m):
+def _ML_KEM_Encaps_internal(ek,m):
     (K,r) = G(m + H(ek))
     c = K_PKE_Encrypt(ek,m,r)               # Algorithm 14 used here
     return (K,c)
 
 # Algorithm 18
-def ML_KEM_Decaps_internal(dk,c):
+def _ML_KEM_Decaps_internal(dk,c):
     dkPKE = dk[0 : 384*k]
     ekPKE = dk[384*k : 768*k + 32]
     h = dk[768*k + 32 : 768*k + 64]
