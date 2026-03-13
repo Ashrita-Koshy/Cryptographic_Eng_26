@@ -84,6 +84,7 @@ def test_acvp_encap_decap(prompt_file, expected_file):
 
     passed, skipped = 0, 0
 
+    # skip if it's not 1024.
     for tg in prompt_data.get('testGroups', []):
         if tg.get('parameterSet') != "ML-KEM-1024":
             skipped += len(tg.get('tests', []))
