@@ -267,7 +267,7 @@ def K_PKE_Decrypt(dk_PKE,c):
 
 # Algorithm 16
 def _ML_KEM_KeyGen_internal(d,z):
-    (ekPKE,dkPKE) = K_PKE_KeyGen(d)         # Algorithm 13 used here
+    ekPKE, dkPKE = K_PKE_KeyGen(d)
     ek = ekPKE
     dk = dkPKE + ek + H(ek) + z
     return (ek,dk)
@@ -275,7 +275,7 @@ def _ML_KEM_KeyGen_internal(d,z):
 # Algorithm 17
 def _ML_KEM_Encaps_internal(ek,m):
     (K,r) = G(m + H(ek))
-    c = K_PKE_Encrypt(ek,m,r)               # Algorithm 14 used here
+    c = K_PKE_Encrypt(ek,m,r)
     return (K,c)
 
 # Algorithm 18
@@ -284,10 +284,48 @@ def _ML_KEM_Decaps_internal(dk,c):
     ekPKE = dk[384*k : 768*k + 32]
     h = dk[768*k + 32 : 768*k + 64]
     z = dk[768*k + 64 : 768*k + 96]
-    m_prime = K_PKE_Decrypt(dkPKE, c)          # Algorithm 15 used here
+    m_prime = K_PKE_Decrypt(dkPKE, c)
     K_prime, r_prime = G(m_prime + h)
     K_bar = J(z + c)
-    c_prime = K_PKE_Encrypt(ekPKE, m_prime, r_prime)        # Algorithm 14 used here
+    c_prime = K_PKE_Encrypt(ekPKE, m_prime, r_prime)
     if c != c_prime:
         K_prime = K_bar
     return K_prime
+
+def ML_KEM_KeyGen():
+    d = os.urandom(32)
+    z = os.urandom(32)
+    if d == None or z == None:
+        return None
+    return _ML_KEM_KeyGen_internal(d,z)
+
+def ML_KEM_Encaps(ek):
+    if type(ek) is not bytes:
+        raise TypeError(f"Encryption Key must be bytes array, got {type(ek)}")
+    if len(ek) != (384*k + 32):
+        raise ValueError(f"Encryption key must contain {(384*k + 32)} bytes")
+    test = b''
+    for i in range(k):
+        test += bytes(ByteEncode(12,ByteDecode(12,ek[384*i:(384*(i+1))])))
+    if test != ek[0:384*k]:
+        raise ValueError(f'Encryption key must contain integers modulo {q}')
+    m = os.urandom(32)
+    if m == None:
+        return None
+    return _ML_KEM_Encaps_internal(ek,m)
+
+def ML_KEM_Decaps(dk,c):
+    if type(c) is not bytes:
+        raise TypeError(f"Ciphertext must be bytes array, got {type(c)}")
+    if len(c) != (32*(du*k + dv)):
+        raise ValueError(f"Ciphertext must contain {(32*(du*k + dv))} bytes")
+    if type(dk) is not bytes:
+        raise TypeError(f"Decryption Key must be bytes array, got {type(dk)}")
+    if len(dk) != (768*k + 96):
+        raise ValueError(f"Decryption key must contain {(768*k + 96)} bytes")
+    test = H(dk[384*k:(768*k+32)])
+    if test != dk[(768*k + 32):(768*k + 64)]:
+        raise ValueError("Decryption Key failed Hash check")
+    return _ML_KEM_Decaps_internal(dk,c)
+
+
