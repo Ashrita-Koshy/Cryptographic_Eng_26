@@ -46,18 +46,18 @@ def test_ml_kem():
     print("Testing ML-KEM...")
 
     try:
-        d = list(os.urandom(32)) # random 32-byte seed for generating the key pair
-        z = list(os.urandom(32)) # for implicit rejection
-        m = list(os.urandom(32)) # 32-byte message to encapsulate
+        d = os.urandom(32) # random 32-byte seed for generating the key pair
+        z = os.urandom(32) # for implicit rejection
+        m = os.urandom(32) # 32-byte message to encapsulate
 
         # Key Generation
         (ek, dk) = ML_KEM_KeyGen_internal(d, z)
 
         # Encapsulation
-        (c, K_enc) = ML_KEM_Encaps_internal(ek, m)
+        (K_enc, c) = ML_KEM_Encaps_internal(ek, m)
 
         # Decapsulation
-        K_dec = ML_KEM_Decaps_internal(dk, c)
+        (K_dec) = ML_KEM_Decaps_internal(dk, c)
 
         assert K_enc == K_dec, "ML-KEM failed: Decapsulated key does not match encapsulated key"
         print("ML-KEM test passed: Decapsulated key matches encapsulated key")

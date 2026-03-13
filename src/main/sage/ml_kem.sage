@@ -266,20 +266,20 @@ def K_PKE_Decrypt(dk_PKE,c):
     return bytes(ByteEncode(1,compressed))
 
 # Algorithm 16
-def _ML_KEM_KeyGen_internal(d,z):
+def ML_KEM_KeyGen_internal(d,z):
     ekPKE, dkPKE = K_PKE_KeyGen(d)
     ek = ekPKE
     dk = dkPKE + ek + H(ek) + z
     return (ek,dk)
 
 # Algorithm 17
-def _ML_KEM_Encaps_internal(ek,m):
+def ML_KEM_Encaps_internal(ek,m):
     (K,r) = G(m + H(ek))
     c = K_PKE_Encrypt(ek,m,r)
     return (K,c)
 
 # Algorithm 18
-def _ML_KEM_Decaps_internal(dk,c):
+def ML_KEM_Decaps_internal(dk,c):
     dkPKE = dk[0 : 384*k]
     ekPKE = dk[384*k : 768*k + 32]
     h = dk[768*k + 32 : 768*k + 64]
@@ -297,7 +297,7 @@ def ML_KEM_KeyGen():
     z = os.urandom(32)
     if d == None or z == None:
         return None
-    return _ML_KEM_KeyGen_internal(d,z)
+    return ML_KEM_KeyGen_internal(d,z)
 
 def ML_KEM_Encaps(ek):
     if type(ek) is not bytes:
@@ -312,7 +312,7 @@ def ML_KEM_Encaps(ek):
     m = os.urandom(32)
     if m == None:
         return None
-    return _ML_KEM_Encaps_internal(ek,m)
+    return ML_KEM_Encaps_internal(ek,m)
 
 def ML_KEM_Decaps(dk,c):
     if type(c) is not bytes:
@@ -326,6 +326,6 @@ def ML_KEM_Decaps(dk,c):
     test = H(dk[384*k:(768*k+32)])
     if test != dk[(768*k + 32):(768*k + 64)]:
         raise ValueError("Decryption Key failed Hash check")
-    return _ML_KEM_Decaps_internal(dk,c)
+    return ML_KEM_Decaps_internal(dk,c)
 
 
