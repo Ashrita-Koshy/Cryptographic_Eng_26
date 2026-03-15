@@ -1,4 +1,4 @@
-import hashlib
+import hashlib, secrets
 
 #Symbols as defined in FIPS 203 - Sect. 2.3
 n = 256
@@ -48,18 +48,38 @@ zetaOddPowers = (17,  -17, 2761, -2761,  583,  -583, 2649, -2649,
                 2110, -2110, 2935, -2935,  885,  -885, 2154, -2154)
 
 def SHAKE128_Init():
+    '''
+    Function: SHAKE128_Init
+    Inputs: None
+    Outputs: SHAKE128 Context
+    Description: Initalizes an XOF "context" as defined in FIPS 203 Sect. 4.1
+    '''
     #ctx is a tuple containing the shake_128 object, and num of bytes already squeezed out
     return (hashlib.shake_128(),0)
 
 def SHAKE128_Absorb(ctx,data):
+    '''
+    Function: SHAKE128_Absorb
+    Inputs: context, data
+    Outputs: updated context
+    Description: Updates underlying Shake128 component and updates
+    context as defined in FIPS 203 Sect. 4.1
+    '''
     ctx[0].update(data)
     return ctx
 
 def SHAKE128_Squeeze(ctx,len):
+    '''
+    Function: SHAKE128_Squeeze
+    Inputs: context, output length
+    Outputs: Hash digest of size len
+    Description: Implements SHAKE128_Squeeze as defined in FIPS 203 Sect. 4.1
+    '''
     total = len + ctx[1]
     C = ctx[0].digest(total)[-len:]
     return ((ctx[0],total),C)
 
+#the following 3 functions wrap the SHAKE128 API as defined in FIPS 203 Sect. 4.1
 def XOF_Init():
     return SHAKE128_Init()
 
@@ -70,30 +90,78 @@ def XOF_Squeeze(ctx, length):
     return SHAKE128_Squeeze(ctx, length)
 
 def BitsToBytes(b):
+    '''
+    Function: BitsToBytes
+    Inputs: Bit array of size 8*l
+    Outputs: Byte array of size l
+    Description: Implements BitsToBytes as defined in FIPS 203 Sect. 4.2.1
+    '''
     return [sum(b[8*i + j] * 2^j for j in range(8)) for i in range(len(b) // 8) ]
 
 def BytesToBits(B):
+    '''
+    Function: BytesToBits
+    Inputs: Byte array B of size l
+    Outputs: Bit array b of size 8*l
+    Description: Implements BytesToBits as defined in FIPS 203 Sect. 4.2.1
+    '''
     return [(B[i] >> j) & 1 for i in range(len(B)) for j in range(8)]
 
 def Round(x,y):
+    '''
+    Function: Round
+    Inputs: Integer x, y
+    Outputs: Integer z
+    Description: Computes x/y uding only integer arithmetic as required in FIPS 203
+    '''
     offset = y//2 if ((x < 0) == (y < 0)) else (-1*y)//2
     return (x + offset)//y
 
 def Compress(d,x):
+    '''
+    Function: Compress
+    Inputs: Bit length d, Integer x in ring of integers modulo q
+    Outputs: Integer x in ring of integers modulo 2 to the power d
+    Description: Implements Compress as defined in FIPS 203 Sect. 4.2.1
+    '''
     return ZZ(Round(((2^d)*ZZ(x)),q)) % 2^d
 
 def Decompress(d,y):
+    '''
+    Function: Decompress
+    Inputs: Bit length d, Integer y in ring of integers modulo 2 to the power d
+    Outputs: Integer y in ring of integers modulo q
+    Description: Implements Decompress as defined in FIPS 203 Sect. 4.2.1
+    '''
     return ZZ(Round((q * ZZ(y)),2^d))
 
 def ByteEncode(d,F):
+    '''
+    Function: ByteEncode
+    Inputs: bit length d, 256 length array F containing integers modulo m where m = 2^d for d < 12, q if d = 12
+    Outputs: byte array B of size 32*d
+    Description: Implements ByteEncode as defined in FIPS 302 Sect. 4.2.1
+    '''
     return BitsToBytes([(ZZ(F[i]) >> j) & 1 for i in range(n) for j in range(d)])
 
 def ByteDecode(d,B):
+    '''
+    Function: ByteDecode
+    Inputs: bit length d, byte array B of size 32*d
+    Outputs: 256 length array F containing integers modulo m where m = 2^d for d < 12, q if d = 12
+    Description: Implements ByteDecode as defined in FIPS 302 Sect. 4.2.1
+    '''
     m = 2^d if d < 12 else q
     b = BytesToBits(B)
     return [sum((b[i*d + j] * 2^j) % m for j in range(d)) for i in range(n)]
 
 def SampleNTT(B):
+    '''
+    Function: SampleNTT
+    Inputs: byte array B of size 34
+    Outputs: 256 length array a containing Integers modulo q in the NTT domain
+    Description: Implements SampleNTT as defined in FIPS 302 Sect. 4.2.2
+    '''
     ctx = XOF_Init()
     ctx = XOF_Absorb(ctx, B)
     a = []
@@ -108,6 +176,12 @@ def SampleNTT(B):
     return a
 
 def SamplePolyCBD(eta,B):
+    '''
+    Function: SamplePolyCBD
+    Inputs: integer eta, byte array B of size 64*eta
+    Outputs: 256 length array f, containing Integers modulo q in the from the polynomial distributiom D_eta(Rq)
+    Description: Implements SamplePolyCBD as defined in FIPS 302 Sect. 4.2.1
+    '''
     b = BytesToBits(B)
     f = [0] * n
     for i in range(n):
@@ -117,6 +191,12 @@ def SamplePolyCBD(eta,B):
     return f
 
 def NTT(f):
+    '''
+    Function: NTT
+    Inputs: 256 length array f containing Integers modulo q
+    Outputs: 256 length array f_hat containing Integers modulo q in the NTT domain
+    Description: Implements NTT as defined in FIPS 302 Sect. 4.3
+    '''
     f_hat = f[:]
     i = 1
     length = 128
@@ -132,6 +212,12 @@ def NTT(f):
     return f_hat
 
 def NTTInverse(f_hat):
+    '''
+    Function: NTTInverse
+    Inputs: 256 length array f_hat containing Integers modulo q in the NTT domain
+    Outputs: 256 length array f containing Integers modulo q
+    Description: Implements the Inverse of NTT as defined in FIPS 302 Sect. 4.3
+    '''
     f = f_hat[:]
     i = 127
     len = 2
@@ -149,33 +235,75 @@ def NTTInverse(f_hat):
     return f
 
 def BaseCaseMultiply(a0,a1,b0,b1,gamma):
+    '''
+    Function: BaseCaseMultiply
+    Inputs: Integers a0, a1, b0, b1, gamma modulo q
+    Outputs: Integers c0, c1 modulo q
+    Description: Implements BaseCaseMultiply as defined in FIPS 302 Sect. 4.3.1
+    '''
     c0 = ((a0*b0) + (a1*b1*gamma)) % q
     c1 = ((a0*b1) + (a1*b0)) % q
     return (c0,c1)
 
 def MultiplyNTTs(f,g):
+    '''
+    Function: MultiplyNTTs
+    Inputs: 256 length arrays f and gcontaining Integers modulo q in the NTT domain
+    Outputs: 256 length array h containing Integers modulo q in the NTT domain
+    Description: Implements MultiplyNTTs as defined in FIPS 302 Sect. 4.3.1
+    '''
     h = [0] * 256
     for i in range(128):
         h[2*i],h[2*i + 1] = BaseCaseMultiply(f[2*i],f[2*i + 1],g[2*i],g[2*i + 1],zetaOddPowers[i])
     return h
 
-# Helper functions
 def H(x):
+    '''
+    Function: H
+    Inputs: byte array x
+    Outputs: hash digest of size 32
+    Description: Implements H as defined in FIPS 302 Sect. 4.1
+    '''
     return hashlib.sha3_256(x).digest()
 
 def G(x):
+    '''
+    Function: G
+    Inputs: bye array x
+    Outputs: hash digest pair each of size 32
+    Description: Implements G as defined in FIPS 302 Sect. 4.1
+    '''
     g = hashlib.sha3_512(x).digest()
     K = g[:32]
     r = g[32:]
     return (K,r)
 
 def J(x):
+    '''
+    Function: J
+    Inputs: byte array x
+    Outputs: hash digest of size 32
+    Description: Implements J as defined in FIPS 302 Sect. 4.1
+    '''
     return hashlib.shake_256(x).digest(32)
 
 def PRF(eta,s,b):
+    '''
+    Function: PRF
+    Inputs: integer eta, 32 byte array s, 1 byte number b
+    Outputs: byte array of size 64*eta
+    Description: Implements [ ] as defined in FIPS 302 Sect. X
+    '''
     return hashlib.shake_256(s + bytes([b])).digest(64*eta)
 
 def MultiplyNTTMatrix(A,u_hat,isTranspose = False):
+    '''
+    Function: MultiplyNTTMatrix
+    Inputs: NTT domain Matrix A, NTT domain polynomial vector u_hat, boolean flag isTranspose
+    Outputs: NTT domain vector w_hat
+    Description: Implements equations 2.12 and 2.13 as defined in FIPS 302 Sect. 2.4.7. 
+    Flag is used to designate if A is transposed.
+    '''
     w_hat = [vector(Integers(q),[0] * n)] * k
     for i in range(k):
         for j in range(k):
@@ -184,6 +312,12 @@ def MultiplyNTTMatrix(A,u_hat,isTranspose = False):
     return w_hat
 
 def MultiplyNTTVector(u_hat,v_hat):
+    '''
+    Function: MultiplyNTTVector
+    Inputs: NTT domain vectors u_hat, v_hat
+    Outputs: NTT polynomial z_hat
+    Description: Implements equation 2.14 as defined in FIPS 302 Sect. 2.4.7
+    '''
     z_hat = vector(Integers(q),[0] * n)
     for j in range(k):
         product = MultiplyNTTs(u_hat[j],v_hat[j])
@@ -191,6 +325,12 @@ def MultiplyNTTVector(u_hat,v_hat):
     return z_hat
 
 def K_PKE_KeyGen(d):
+    '''
+    Function: K_PKE_KeyGen
+    Inputs: 32 byte random value d
+    Outputs: encryption key size 384*k + 32 bytes, decryption key size 384*k bytes
+    Description: Implements K-PKE.KeyGen as defined in FIPS 302 Sect. 5.1
+    '''
     rho, sigma = G(d + bytes([k]))
     N = 0
     A = [[None] * k for _ in range(k)]
@@ -219,6 +359,12 @@ def K_PKE_KeyGen(d):
     return ek_PKE, dk_PKE
 
 def K_PKE_Encrypt(ek_PKE,m,r):
+    '''
+    Function: K_PKE_Encrypt
+    Inputs: 384*k + 32 byte encryption key, 32 byte message m, 32 byte random value r
+    Outputs: 32*(du*k + dv) byte ciphertext
+    Description: Implements K-PKE.Encrypt as defined in FIPS 302 Sect. 5.2
+    '''
     N = 0
     t_hat = [vector(Integers(q),ByteDecode(12,ek_PKE[(384*i):(384*(i+1))])) for i in range(k)]
     rho = ek_PKE[-(32):]
@@ -250,6 +396,12 @@ def K_PKE_Encrypt(ek_PKE,m,r):
     return (c1 + c2)
 
 def K_PKE_Decrypt(dk_PKE,c):
+    '''
+    Function: K_PKE_Decrypt
+    Inputs: 384*k byte decryption key, 32*(du*k + dv) byte ciphertext
+    Outputs: 32 byte message m
+    Description: Implements K-PKE.Decrypt as defined in FIPS 302 Sect. 5.3
+    '''
     c1 = c[:(32*du*k)]
     c2 = c[(32*du*k):]
     u_prime = [None] * k
@@ -265,21 +417,36 @@ def K_PKE_Decrypt(dk_PKE,c):
     compressed = [Compress(1,val) for val in w]
     return bytes(ByteEncode(1,compressed))
 
-# Algorithm 16
 def ML_KEM_KeyGen_internal(d,z):
+    '''
+    Function: ML_KEM_KeyGen_internal
+    Inputs: 32 byte random values d, z
+    Outputs: 384*k + 32 byte encapsulation key, 768*k + 96 byte decapsulation key
+    Description: Implements ML-KEM.KeyGen_Internal as defined in FIPS 302 Sect. 6.1
+    '''
     ekPKE, dkPKE = K_PKE_KeyGen(d)
     ek = ekPKE
     dk = dkPKE + ek + H(ek) + z
     return (ek,dk)
 
-# Algorithm 17
 def ML_KEM_Encaps_internal(ek,m):
+    '''
+    Function: ML_KEM_Encaps_internal
+    Inputs: 384*k + 32 byte encapsulation key, 32 byte random message m
+    Outputs: 32 byte shared secret, 32*(du*k + dv) byte ciphertext
+    Description: Implements ML-KEM.Encaps_Internal as defined in FIPS 302 Sect. 6.2
+    '''
     (K,r) = G(m + H(ek))
     c = K_PKE_Encrypt(ek,m,r)
     return (K,c)
 
-# Algorithm 18
 def ML_KEM_Decaps_internal(dk,c):
+    '''
+    Function: ML_KEM_Decaps_internal
+    Inputs: 768*k + 96 byte decapsulation key, 32*(du*k + dv) byte ciphertext
+    Outputs: 32 byte shared secret
+    Description: Implements ML-KEM.Decaps_Internal as defined in FIPS 302 Sect. 6.3
+    '''
     dkPKE = dk[0 : 384*k]
     ekPKE = dk[384*k : 768*k + 32]
     h = dk[768*k + 32 : 768*k + 64]
@@ -293,6 +460,12 @@ def ML_KEM_Decaps_internal(dk,c):
     return K_prime
 
 def ML_KEM_KeyGen():
+    '''
+    Function: ML_KEM_KeyGen
+    Inputs: None
+    Outputs: 384*k + 32 byte encapsulation key, 768*k + 96 byte decapsulation key
+    Description: Implements ML-KEM.KeyGen as defined in FIPS 302 Sect. 7.1
+    '''
     d = os.urandom(32)
     z = os.urandom(32)
     if d == None or z == None:
@@ -300,6 +473,12 @@ def ML_KEM_KeyGen():
     return ML_KEM_KeyGen_internal(d,z)
 
 def ML_KEM_Encaps(ek):
+    '''
+    Function: ML_KEM_Encaps
+    Inputs: 384*k + 32 byte encapsulation key
+    Outputs: 32 byte shared secret, 32*(du*k + dv) byte ciphertext
+    Description: Implements ML-KEM.Encaps as defined in FIPS 302 Sect. 7.2
+    '''
     if type(ek) is not bytes:
         raise TypeError(f"Encryption Key must be bytes array, got {type(ek)}")
     if len(ek) != (384*k + 32):
@@ -315,6 +494,12 @@ def ML_KEM_Encaps(ek):
     return ML_KEM_Encaps_internal(ek,m)
 
 def ML_KEM_Decaps(dk,c):
+    '''
+    Function: ML_KEM_Decaps
+    Inputs: 768*k + 96 byte decapsulation key, 32*(du*k + dv) byte ciphertext
+    Outputs: 32 byte shared secret
+    Description: Implements ML-KEM.Decaps as defined in FIPS 302 Sect. 7.3
+    '''
     if type(c) is not bytes:
         raise TypeError(f"Ciphertext must be bytes array, got {type(c)}")
     if len(c) != (32*(du*k + dv)):
