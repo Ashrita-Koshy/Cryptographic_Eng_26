@@ -1,4 +1,4 @@
-# ML-KEM-1024 SageMath Implementation and ACVP Validation
+# A SageMath Executable Specification of ML-KEM-1024 with ACVP Validation
 
 ## Overview
 This repository provides a high-level executable specification of the ML-KEM-1024 key encapsulation mechanism based on **NIST FIPS 203**.
