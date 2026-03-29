@@ -57,7 +57,7 @@ uint8_t* byteEncode(const uint16_t* F, uint8_t d){
 }
 
 uint16_t* byteDecode(const uint8_t* B, uint8_t d){
-    uint16_t* F = malloc(256 * sizeof(uint16_t));
+    uint16_t* F = malloc(N * sizeof(uint16_t));
     uint8_t* b = bytesToBits(B,32*d);
     uint16_t m = m = (d < 12) ? ((uint16_t)1 << d) : Q;
     for(uint16_t i = 0; i < N; i++){
@@ -70,5 +70,44 @@ uint16_t* byteDecode(const uint8_t* B, uint8_t d){
     free(b);
     return F;
 }
+
+uint16_t* sampleNTT(const uint8_t* B){
+    XOF_ctx ctx;
+    XOF_Init(&ctx);
+    XOF_Absorb(&ctx,B,34);
+    XOF_Finalize(&ctx);
+
+    uint16_t* a = malloc(N * sizeof(uint16_t));
+    uint16_t j = 0;
+    uint8_t C[3];
+    while(j < N){
+        XOF_Squeeze(&ctx,C,3);
+        uint16_t d1 = (uint16_t)(C[0] + N*(C[1] & 15));
+        uint16_t d2 = (uint16_t)((C[1]/16) + 16*C[2]);
+        if(d1 < Q){
+            a[j] = d1;
+            j += 1;
+        }
+        if((d2 < Q) && (j < N)){
+            a[j] = d2;
+            j += 1;
+        }
+    }
+    return a;
+}
+
+uint16_t* samplePolyCBD(const uint8_t* B){
+    uint8_t* b = bytesToBits(B,(64 * ETA));
+    uint16_t* f = malloc(N * sizeof(uint16_t));
+    for(uint16_t i = 0; i < N; i++){
+        int16_t x = b[2*i*ETA] + b[2*i*ETA + 1];
+        int16_t y = b[2*i*ETA + ETA] + b[2*i*ETA + ETA + 1];
+        f[i] = (uint16_t)((((x-y)% Q) + Q) % Q); //handles negative modulo case
+    }
+    free(b);
+    return f;
+}
+
+
 
 

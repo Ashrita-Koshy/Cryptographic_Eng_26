@@ -1,13 +1,14 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include "fips202.h"
 
 #define N 256
 #define Q 3329
-#define K = 4
-#define ETA = 2
-#define D_U = 11
-#define D_UPSILON = 5
+#define K 4
+#define ETA 2
+#define D_U 11
+#define D_UPSILON 5
 
 /* Precomputed Zeta powers as defined in FIPS 203 Appendix A */
 static const int16_t zetaPowers[128] = {
@@ -49,6 +50,12 @@ static const int16_t zetaOddPowers[128] = {
     2110, -2110, 2935, -2935,  885,  -885, 2154, -2154
 };
 
+#define XOF_ctx                   keccak_state
+#define XOF_Init(a)                shake128_init(a)
+#define XOF_Absorb(a, b, c)        shake128_absorb(a, b, c)
+#define XOF_Finalize(a)            shake128_finalize(a)
+#define XOF_Squeeze(a, b, c)       shake128_squeeze(b, c, a)
+
 /*These function likely could pass the result as a pointer tbh*/
 uint8_t* bitsToBytes(const uint8_t* bits, size_t l);
 uint8_t* bytesToBits(const uint8_t* bytes, size_t l);
@@ -61,3 +68,6 @@ uint16_t decompress(uint16_t y, uint8_t d);
 /*Also worth noting, since d is probably oonly going to equal 12, can probably get rid of any memory allocation with these bits/bytes related functions*/
 uint8_t* byteEncode(const uint16_t* F, uint8_t d);
 uint16_t* byteDecode(const uint8_t* B, uint8_t d);
+
+uint16_t* sampleNTT(const uint8_t* B);
+uint16_t* samplePolyCBD(const uint8_t* B);
