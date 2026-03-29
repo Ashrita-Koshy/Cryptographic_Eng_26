@@ -50,9 +50,14 @@ static const int16_t zetaOddPowers[128] = {
 };
 
 /*These function likely could pass the result as a pointer tbh*/
-uint8_t *bitsToBytes(const uint8_t *bits, size_t l);
-uint8_t *bytesToBits(const uint8_t *bytes, size_t l);
+uint8_t* bitsToBytes(const uint8_t* bits, size_t l);
+uint8_t* bytesToBits(const uint8_t* bytes, size_t l);
 
 /*These can probably be inlined since d is almost always going to be 12 or 1*/
 uint16_t compress(uint16_t x, uint8_t d);
 uint16_t decompress(uint16_t y, uint8_t d);
+
+/*Pretty sure these are only used with d = 12, so could maybe unroll inner for loop, might not be worth it though*/
+/*Also worth noting, since d is probably oonly going to equal 12, can probably get rid of any memory allocation with these bits/bytes related functions*/
+uint8_t* byteEncode(const uint16_t* F, uint8_t d);
+uint16_t* byteDecode(const uint8_t* B, uint8_t d);
