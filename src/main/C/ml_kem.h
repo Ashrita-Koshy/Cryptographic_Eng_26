@@ -3,10 +3,10 @@
 #include <stdlib.h>
 #include "fips202.h"
 
-#define N 256
-#define Q 3329
+#define MLKEM_Q 3329
+#define MLKEM_N  256
 #define K 4
-#define ETA 2
+#define MLKEM_ETA 2
 #define D_U 11
 #define D_UPSILON 5
 
@@ -71,3 +71,6 @@ uint16_t* byteDecode(const uint8_t* B, uint8_t d);
 
 uint16_t* sampleNTT(const uint8_t* B);
 uint16_t* samplePolyCBD(const uint8_t* B);
+
+void NTT(uint16_t* f);
+void NTTInverse(uint16_t* f);
