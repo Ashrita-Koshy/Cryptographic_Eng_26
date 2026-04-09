@@ -1,0 +1,19 @@
+#define MLKEM_Q 3329
+#define MLKEM_N  256
+#define K 4
+#define MLKEM_ETA 2
+#define D_U 11
+#define D_U_ENCODING_LEN 32*D_U
+#define D_UPSILON 5
+#define G_SEED_LEN 33
+#define PRF_SEED_LEN 33
+#define ENCODING_LEN 12
+#define POLY_BYTE_LEN (ENCODING_LEN*MLKEM_N)/8
+#define CBD_SEED_LEN 64*MLKEM_ETA
+#define C_1_LEN 32*D_U*K
+#define C_2_LEN 32*D_UPSILON
+#define PKE_SEED_KEN 64
+#define PKE_PUB_KEY_LEN 384*K + 32
+#define PKE_PRV_KEY_LEN 384*K
+#define PKE_CIPHERTEX_LEN 32*(D_U*K + D_UPSILON)
+#define RANDOM_LEN 32
