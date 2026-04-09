@@ -11,6 +11,8 @@
 #define XOF_Finalize(a)       shake128_finalize(a)
 #define XOF_Squeeze(a, b, c)  shake128_squeeze(b, c, a)
 #define G(a, b, c)            sha3_512(a, b, c)
+#define H(a, b, c)            sha3_256(a, b, c)
+#define J(a, b, c, d)         shake256(a, b, c, d)
 #define PRF(a, b, c, d)       shake256(a, b, c, d)
 
 /*These can probably be inlined since d is almost always going to be 12 or 1*/

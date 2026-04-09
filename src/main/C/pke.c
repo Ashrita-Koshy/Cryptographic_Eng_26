@@ -1,11 +1,11 @@
 #include "pke.h"
 
 void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
-    uint8_t bytes[G_SEED_LEN];
+    uint8_t bytes[KEY_SEED_LEN];
     memcpy(bytes,d,RANDOM_LEN);
     bytes[RANDOM_LEN] = K;
     uint8_t seed[PKE_SEED_KEN];
-    G(seed,bytes,G_SEED_LEN);
+    G(seed,bytes,KEY_SEED_LEN);
     //reuse bytes to store sigma + N
     memcpy(bytes,seed + RANDOM_LEN,RANDOM_LEN);
     bytes[RANDOM_LEN] = 0;
@@ -21,14 +21,14 @@ void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
     uint16_t s[K][MLKEM_N];
     uint8_t seedCBD[CBD_SEED_LEN] = {0};
     for(uint8_t i = 0; i < K; i++){
-        PRF(seedCBD,CBD_SEED_LEN,bytes,PRF_SEED_LEN);
+        PRF(seedCBD,CBD_SEED_LEN,bytes,KEY_SEED_LEN);
         samplePolyCBD(s[i],seedCBD);
         ntt(s[i]);
         bytes[RANDOM_LEN] = bytes[RANDOM_LEN] + 1;
     }
     uint16_t e[K][MLKEM_N];
     for(uint8_t i = 0; i < K; i++){
-        PRF(seedCBD,CBD_SEED_LEN,bytes,PRF_SEED_LEN);
+        PRF(seedCBD,CBD_SEED_LEN,bytes,KEY_SEED_LEN);
         samplePolyCBD(e[i],seedCBD);
         ntt(e[i]);
         bytes[RANDOM_LEN] = bytes[RANDOM_LEN] + 1;
@@ -60,7 +60,7 @@ void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
 
 void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uint8_t* r){
     //more loop unrolling can probably happen here too
-    uint8_t seedPRF[PRF_SEED_LEN];    
+    uint8_t seedPRF[KEY_SEED_LEN];    
     uint16_t t[K][MLKEM_N];
     for(uint8_t i = 0; i < K; i++){
         byteDecode(t[i],ekPKE + POLY_BYTE_LEN*i,ENCODING_LEN);
@@ -80,19 +80,19 @@ void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uin
     uint16_t y[K][MLKEM_N];
     uint8_t seedCBD[CBD_SEED_LEN] = {0};
     for(uint8_t i = 0; i < K; i++){
-        PRF(seedCBD,CBD_SEED_LEN,seedPRF,PRF_SEED_LEN);
+        PRF(seedCBD,CBD_SEED_LEN,seedPRF,KEY_SEED_LEN);
         samplePolyCBD(y[i],seedCBD);
         ntt(y[i]);
         seedPRF[RANDOM_LEN] = seedPRF[RANDOM_LEN] + 1;
     }
     uint16_t e1[K][MLKEM_N];
     for(uint8_t i = 0; i < K; i++){
-        PRF(seedCBD,CBD_SEED_LEN,seedPRF,PRF_SEED_LEN);
+        PRF(seedCBD,CBD_SEED_LEN,seedPRF,KEY_SEED_LEN);
         samplePolyCBD(e1[i],seedCBD);
         seedPRF[RANDOM_LEN] = seedPRF[RANDOM_LEN] + 1;
     }
     uint16_t e2[MLKEM_N];
-    PRF(seedCBD,CBD_SEED_LEN,seedPRF,PRF_SEED_LEN);
+    PRF(seedCBD,CBD_SEED_LEN,seedPRF,KEY_SEED_LEN);
     samplePolyCBD(e2,seedCBD);
     //U = A^t * y
     uint16_t u[K][MLKEM_N] = {0};
