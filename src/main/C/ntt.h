@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stddef.h>
 #include "config.h"
 /* Precomputed Zeta powers as defined in FIPS 203 Appendix A */
 static const int16_t zetaPowers[128] = {
