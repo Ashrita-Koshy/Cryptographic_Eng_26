@@ -86,7 +86,6 @@ void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
             hex_to_bytes(cJSON_GetObjectItem(test, "d")->valuestring, d);
             hex_to_bytes(cJSON_GetObjectItem(test, "z")->valuestring, z);
 
-            // Calling YOUR specific internal function
             ML_KEM_KeyGen_Internal(my_ek, my_dk, d, z);
 
             bytes_to_hex(my_ek, PUB_KEY_LEN, my_ek_hex);
@@ -139,10 +138,9 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
         cJSON_ArrayForEach(test, tests) {
             int tcId = cJSON_GetObjectItem(test, "tcId")->valueint;
             
-            // 1. Find expected result early
             cJSON *exp = find_test_by_id(e_json, tcId);
             if (!exp) {
-                printf("[-] Skipping tcId %d: No expected result found\n", tcId);
+                printf("[-] Skipping tcId %d: No expected result found\n", tcId);    // If expected result is found early
                 continue;
             }
 
