@@ -1,201 +1,227 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "kem.h"
-#include "rng.h"
+#include <stdint.h>
 #include "cJSON.h"
-#include "test_ml_kem_KAT.h"
+#include "kem.h"  
+#include "rng.h"
 
-#define MAXBUF 100000
 
-// Functions
+#define PUB_KEY_LEN     1568
+#define PRIV_KEY_LEN    3168
+#define CIPHERTEXT_LEN  1568
+#define SHARED_SEC_LEN  32
+#define SEED_LEN        32
 
-char* read_file(const char* path) {
-    FILE* f = fopen(path, "rb");
+
+// --- Helper Functions ---
+void hex_to_bytes(const char *hex, uint8_t *bytes) {
+    if (!hex) return;
+    for (size_t i = 0; i < strlen(hex) / 2; i++) {
+        sscanf(hex + 2 * i, "%02hhx", &bytes[i]);
+    }
+}
+
+void bytes_to_hex(const uint8_t *bytes, size_t len, char *hex) {
+    for (size_t i = 0; i < len; i++) {
+        sprintf(hex + 2 * i, "%02X", bytes[i]);
+    }
+    hex[2 * len] = '\0';
+}
+
+char* read_file_to_string(const char *filename) {
+    FILE *f = fopen(filename, "rb");
+    if (!f) return NULL;
     fseek(f, 0, SEEK_END);
     long len = ftell(f);
-    rewind(f);
-
-    char* data = malloc(len + 1);
-    fread(data, 1, len, f);
-    data[len] = 0;
+    fseek(f, 0, SEEK_SET);
+    char *data = malloc(len + 1);
+    if (data) {
+        fread(data, 1, len, f);
+        data[len] = '\0';
+    }
     fclose(f);
     return data;
 }
 
-void hex_to_bytes(const char* hex, uint8_t* out, size_t len) {
-    for (size_t i = 0; i < len; i++)
-        sscanf(hex + 2*i, "%2hhx", &out[i]);
-}
-
-void bytes_to_hex(const uint8_t* in, size_t len, char* out) {
-    for (size_t i = 0; i < len; i++)
-        sprintf(out + 2*i, "%02x", in[i]);
-    out[2*len] = 0;
-}
-
-void run_keygen_kat(const char* prompt, const char* expected) {
-
-    char* ptxt = read_file(prompt);
-    char* etxt = read_file(expected);
-
-    cJSON* pr = cJSON_Parse(ptxt);
-    cJSON* er = cJSON_Parse(etxt);
-
-    cJSON* tg_p = cJSON_GetObjectItem(pr, "testGroups");
-    cJSON* tg_e = cJSON_GetObjectItem(er, "testGroups");
-
-    for (int g = 0; g < cJSON_GetArraySize(tg_p); g++) {
-
-        cJSON* tests_p = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(tg_p, g), "tests");
-        cJSON* tests_e = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(tg_e, g), "tests");
-
-        for (int i = 0; i < cJSON_GetArraySize(tests_p); i++) {
-
-            cJSON* tp = cJSON_GetArrayItem(tests_p, i);
-            cJSON* te = cJSON_GetArrayItem(tests_e, i);
-
-            uint8_t d[32], z[32];
-            hex_to_bytes(cJSON_GetObjectItem(tp,"d")->valuestring, d, 32);
-            hex_to_bytes(cJSON_GetObjectItem(tp,"z")->valuestring, z, 32);
-
-            randombytes_init(d, z, 256);
-
-            KemKeyPair kp = ML_KEM_KeyGen();
-
-            char ek_hex[2*PKE_PUB_KEY_LEN+1];
-            char dk_hex[2*KEM_DECAP_LEN+1];
-
-            bytes_to_hex(kp.ek, PKE_PUB_KEY_LEN, ek_hex);
-            bytes_to_hex(kp.dk, KEM_DECAP_LEN, dk_hex);
-
-            if (strcasecmp(ek_hex,
-                cJSON_GetObjectItem(te,"ek")->valuestring)==0 &&
-                strcasecmp(dk_hex,
-                cJSON_GetObjectItem(te,"dk")->valuestring)==0)
-                printf("[KeyGen %d] PASS\n",
-                    cJSON_GetObjectItem(tp,"tcId")->valueint);
-            else
-                printf("[KeyGen %d] FAIL\n",
-                    cJSON_GetObjectItem(tp,"tcId")->valueint);
+cJSON* find_test_by_id(cJSON *root, int tcId) {
+    cJSON *groups = cJSON_GetObjectItem(root, "testGroups");
+    cJSON *group, *test;
+    cJSON_ArrayForEach(group, groups) {
+        cJSON *tests = cJSON_GetObjectItem(group, "tests");
+        cJSON_ArrayForEach(test, tests) {
+            if (cJSON_GetObjectItem(test, "tcId")->valueint == tcId) return test;
         }
     }
+    return NULL;
 }
 
-void run_encap_kat(const char* prompt, const char* expected) {
+// --- Test Functions ---
+void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
+    printf("\n==================================================\n");
+    printf("KeyGen Validation: %s\n", prompt_file);
 
-    char* ptxt = read_file(prompt);
-    char* etxt = read_file(expected);
+    char *p_raw = read_file_to_string(prompt_file);
+    char *e_raw = read_file_to_string(expected_file);
+    if (!p_raw || !e_raw) { printf("[-] Failed to load JSON files\n"); return; }
 
-    cJSON* pr = cJSON_Parse(ptxt);
-    cJSON* er = cJSON_Parse(etxt);
+    cJSON *p_json = cJSON_Parse(p_raw);
+    cJSON *e_json = cJSON_Parse(e_raw);
+    int passed = 0, skipped = 0;
 
-    cJSON* tg_p = cJSON_GetObjectItem(pr, "testGroups");
-    cJSON* tg_e = cJSON_GetObjectItem(er, "testGroups");
+    cJSON *group;
+    cJSON_ArrayForEach(group, cJSON_GetObjectItem(p_json, "testGroups")) {
+        if (strcmp(cJSON_GetObjectItem(group, "parameterSet")->valuestring, "ML-KEM-1024") != 0) {
+            skipped += cJSON_GetArraySize(cJSON_GetObjectItem(group, "tests"));
+            continue;
+        }
 
-    for (int g = 0; g < cJSON_GetArraySize(tg_p); g++) {
+        cJSON *test;
+        cJSON_ArrayForEach(test, cJSON_GetObjectItem(group, "tests")) {
+            int tcId = cJSON_GetObjectItem(test, "tcId")->valueint;
+            uint8_t d[SEED_LEN], z[SEED_LEN];
+            uint8_t my_ek[PUB_KEY_LEN], my_dk[PRIV_KEY_LEN];
+            char my_ek_hex[PUB_KEY_LEN*2+1], my_dk_hex[PRIV_KEY_LEN*2+1];
 
-        cJSON* tests_p = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(tg_p, g), "tests");
-        cJSON* tests_e = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(tg_e, g), "tests");
+            hex_to_bytes(cJSON_GetObjectItem(test, "d")->valuestring, d);
+            hex_to_bytes(cJSON_GetObjectItem(test, "z")->valuestring, z);
 
-        for (int i = 0; i < cJSON_GetArraySize(tests_p); i++) {
+            // Calling YOUR specific internal function
+            ML_KEM_KeyGen_Internal(my_ek, my_dk, d, z);
 
-            cJSON* tp = cJSON_GetArrayItem(tests_p, i);
-            cJSON* te = cJSON_GetArrayItem(tests_e, i);
+            bytes_to_hex(my_ek, PUB_KEY_LEN, my_ek_hex);
+            bytes_to_hex(my_dk, PRIV_KEY_LEN, my_dk_hex);
 
-            uint8_t ek[PKE_PUB_KEY_LEN], m[32];
-            hex_to_bytes(cJSON_GetObjectItem(tp,"ek")->valuestring, ek, PKE_PUB_KEY_LEN);
-            hex_to_bytes(cJSON_GetObjectItem(tp,"msg")->valuestring, m, 32);
-
-            randombytes_init(m, NULL, 256);
-
-            KemEncapsulation enc = ML_KEM_Encaps(ek, PKE_PUB_KEY_LEN);
-
-            char c_hex[2*PKE_CIPHERTEX_LEN+1];
-            char k_hex[65];
-
-            bytes_to_hex(enc.c, PKE_CIPHERTEX_LEN, c_hex);
-            bytes_to_hex(enc.k, 32, k_hex);
-
-            if (strcasecmp(c_hex,
-                cJSON_GetObjectItem(te,"c")->valuestring)==0 &&
-                strcasecmp(k_hex,
-                cJSON_GetObjectItem(te,"k")->valuestring)==0)
-                printf("[Encap %d] PASS\n",
-                    cJSON_GetObjectItem(tp,"tcId")->valueint);
-            else
-                printf("[Encap %d] FAIL\n",
-                    cJSON_GetObjectItem(tp,"tcId")->valueint);
+            cJSON *exp = find_test_by_id(e_json, tcId);
+            if (exp && strcasecmp(my_ek_hex, cJSON_GetObjectItem(exp, "ek")->valuestring) == 0 &&
+                strcasecmp(my_dk_hex, cJSON_GetObjectItem(exp, "dk")->valuestring) == 0) {
+                passed++;
+            } else {
+                printf("[-] KeyGen mismatch at tcId %d\n", tcId);
+                goto end;
+            }
         }
     }
+    printf("[SUCCESS] KeyGen Passed: %d (Skipped: %d)\n", passed, skipped);
+
+end:
+    cJSON_Delete(p_json); cJSON_Delete(e_json);
+    free(p_raw); free(e_raw);
 }
 
-void run_decap_kat(const char* prompt, const char* expected) {
+void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
+    printf("\n==================================================\n");
+    printf("Encap/Decap Validation: %s\n", prompt_file);
 
-    char* ptxt = read_file(prompt);
-    char* etxt = read_file(expected);
+    char *p_raw = read_file_to_string(prompt_file);
+    char *e_raw = read_file_to_string(expected_file);
+    if (!p_raw || !e_raw) { printf("[-] Failed to load JSON files\n"); return; }
 
-    cJSON* pr = cJSON_Parse(ptxt);
-    cJSON* er = cJSON_Parse(etxt);
+    cJSON *p_json = cJSON_Parse(p_raw);
+    cJSON *e_json = cJSON_Parse(e_raw);
+    if (!p_json || !e_json) { printf("[-] JSON Parse Error\n"); return; }
 
-    cJSON* tg_p = cJSON_GetObjectItem(pr, "testGroups");
-    cJSON* tg_e = cJSON_GetObjectItem(er, "tests");
+    int passed = 0, skipped = 0;
+    cJSON *groups = cJSON_GetObjectItem(p_json, "testGroups");
 
-    for (int g = 0; g < cJSON_GetArraySize(tg_p); g++) {
+    cJSON *group;
+    cJSON_ArrayForEach(group, groups) {
+        cJSON *pSet = cJSON_GetObjectItem(group, "parameterSet");
+        if (!pSet || strcmp(pSet->valuestring, "ML-KEM-1024") != 0) {
+            skipped += cJSON_GetArraySize(cJSON_GetObjectItem(group, "tests"));
+            continue;
+        }
 
-        cJSON* tests_p = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(tg_p, g), "tests");
-        cJSON* tests_e = cJSON_GetObjectItem(
-            cJSON_GetArrayItem(tg_e, g), "tests");
+        const char *func = cJSON_GetObjectItem(group, "function")->valuestring;
+        cJSON *tests = cJSON_GetObjectItem(group, "tests");
 
-        for (int i = 0; i < cJSON_GetArraySize(tests_p); i++) {
+        cJSON *test;
+        cJSON_ArrayForEach(test, tests) {
+            int tcId = cJSON_GetObjectItem(test, "tcId")->valueint;
+            
+            // 1. Find expected result early
+            cJSON *exp = find_test_by_id(e_json, tcId);
+            if (!exp) {
+                printf("[-] Skipping tcId %d: No expected result found\n", tcId);
+                continue;
+            }
 
-            cJSON* tp = cJSON_GetArrayItem(tests_p, i);
-            cJSON* te = cJSON_GetArrayItem(tests_e, i);
+            if (strcmp(func, "encapsulation") == 0) {
+                uint8_t ek[PUB_KEY_LEN], m[SEED_LEN], my_k[SHARED_SEC_LEN], my_c[CIPHERTEXT_LEN];
+                char my_k_hex[SHARED_SEC_LEN*2+1], my_c_hex[CIPHERTEXT_LEN*2+1];
 
-            uint8_t dk[KEM_DECAP_LEN], c[PKE_CIPHERTEX_LEN];
-            hex_to_bytes(cJSON_GetObjectItem(tp,"dk")->valuestring, dk, KEM_DECAP_LEN);
-            hex_to_bytes(cJSON_GetObjectItem(tp,"c")->valuestring, c, PKE_CIPHERTEX_LEN);
+                cJSON *ek_obj = cJSON_GetObjectItem(test, "ek");
+                cJSON *m_obj = cJSON_GetObjectItem(test, "msg") ? cJSON_GetObjectItem(test, "msg") : 
+                               (cJSON_GetObjectItem(test, "m") ? cJSON_GetObjectItem(test, "m") : cJSON_GetObjectItem(test, "payload"));
 
-            KemDecapsulation dec =
-                ML_KEM_Decaps(c, PKE_CIPHERTEX_LEN,
-                              dk, KEM_DECAP_LEN);
+                if (!ek_obj || !m_obj) { printf("[-] tcId %d: Missing input fields\n", tcId); goto end; }
 
-            char k_hex[65];
-            bytes_to_hex(dec.k, 32, k_hex);
+                hex_to_bytes(ek_obj->valuestring, ek);
+                hex_to_bytes(m_obj->valuestring, m);
 
-            if (strcasecmp(k_hex,
-                cJSON_GetObjectItem(te,"k")->valuestring)==0)
-                printf("[Decap %d] PASS\n",
-                    cJSON_GetObjectItem(tp,"tcId")->valueint);
-            else
-                printf("[Decap %d] FAIL\n",
-                    cJSON_GetObjectItem(tp,"tcId")->valueint);
+                ML_KEM_Encaps_Internal(my_k, my_c, ek, m);
+
+                bytes_to_hex(my_k, SHARED_SEC_LEN, my_k_hex);
+                bytes_to_hex(my_c, CIPHERTEXT_LEN, my_c_hex);
+
+                cJSON *exp_k = cJSON_GetObjectItem(exp, "k");
+                cJSON *exp_c = cJSON_GetObjectItem(exp, "c");
+                if (!exp_k || !exp_c) { printf("[-] tcId %d: Missing expected fields\n", tcId); goto end; }
+
+                if (strcasecmp(my_k_hex, exp_k->valuestring) == 0 &&
+                    strcasecmp(my_c_hex, exp_c->valuestring) == 0) {
+                    passed++;
+                } else { printf("[-] Encap mismatch at tcId %d\n", tcId); goto end; }
+            } 
+            else if (strcmp(func, "decapsulation") == 0) {
+                uint8_t dk[PRIV_KEY_LEN], c[CIPHERTEXT_LEN], my_k[SHARED_SEC_LEN];
+                char my_k_hex[SHARED_SEC_LEN*2+1];
+
+                cJSON *dk_obj = cJSON_GetObjectItem(test, "dk");
+                cJSON *c_obj = cJSON_GetObjectItem(test, "c");
+                if (!dk_obj || !c_obj) { printf("[-] tcId %d: Missing decap inputs\n", tcId); goto end; }
+
+                hex_to_bytes(dk_obj->valuestring, dk);
+                hex_to_bytes(c_obj->valuestring, c);
+
+                ML_KEM_Decaps_Internal(my_k, c, dk);
+
+                bytes_to_hex(my_k, SHARED_SEC_LEN, my_k_hex);
+                
+                cJSON *prompt_k_obj = cJSON_GetObjectItem(test, "k");
+                cJSON *tp = cJSON_GetObjectItem(exp, "testPassed");
+
+                if (tp) { 
+                    if (!prompt_k_obj) { printf("[-] tcId %d: Missing prompt k\n", tcId); goto end; }
+                    int match = (strcasecmp(my_k_hex, prompt_k_obj->valuestring) == 0);
+                    if (match == cJSON_IsTrue(tp)) passed++;
+                    else { printf("[-] Decap Rejection logic failed at tcId %d\n", tcId); goto end; }
+                } else {
+                    cJSON *exp_k = cJSON_GetObjectItem(exp, "k");
+                    if (!exp_k) { printf("[-] tcId %d: Missing expected k\n", tcId); goto end; }
+                    if (strcasecmp(my_k_hex, exp_k->valuestring) == 0) passed++;
+                    else { printf("[-] Decap mismatch at tcId %d\n", tcId); goto end; }
+                }
+            }
         }
     }
+    printf("[SUCCESS] Encap/Decap Passed: %d (Skipped: %d)\n", passed, skipped);
+
+end:
+    cJSON_Delete(p_json); cJSON_Delete(e_json);
+    free(p_raw); free(e_raw);
 }
 
-int main() { 
-    run_keygen_kat( 
-        "known_answers_tests/ML-KEM-keyGen-FIPS203/prompt.json", 
-        "known_answers_tests/ML-KEM-keyGen-FIPS203/expectedResults.json" 
-    ); 
-        
-    run_encap_kat( 
-        "known_answers_tests/ML-KEM-encapDecap-FIPS203/prompt.json", 
-        "known_answers_tests/ML-KEM-encapDecap-FIPS203/expectedResults.json" 
-    ); 
-    
-    run_decap_kat( 
-        "known_answers_tests/ML-KEM-encapDecap-FIPS203/prompt.json", 
-        "known_answers_tests/ML-KEM-encapDecap-FIPS203/expectedResults.json" 
-    ); 
-    
-    printf("\nALL KAT TESTS COMPLETED\n"); 
-    
+int main() {
+    test_acvp_keygen(
+        "known_answers_tests/ML-KEM-keyGen-FIPS203/prompt.json",
+        "known_answers_tests/ML-KEM-keyGen-FIPS203/expectedResults.json"
+    );
+
+    test_acvp_encap_decap(
+        "known_answers_tests/ML-KEM-encapDecap-FIPS203/prompt.json",
+        "known_answers_tests/ML-KEM-encapDecap-FIPS203/expectedResults.json"
+    );
+
+    return 0;
 }

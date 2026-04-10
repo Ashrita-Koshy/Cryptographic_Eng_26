@@ -1,8 +1,8 @@
 #ifndef TEST_ML_KEM_KAT_H
 #define TEST_ML_KEM_KAT_H
 
-void run_keygen_kat(const char* prompt, const char* expected);
-void run_encap_kat(const char* prompt, const char* expected);
-void run_decap_kat(const char* prompt, const char* expected);
+void test_acvp_keygen(const char *prompt_file, const char *expected_file);
+void test_acvp_encap_decap(const char *prompt_file, const char *expected_file);
+
 
 #endif

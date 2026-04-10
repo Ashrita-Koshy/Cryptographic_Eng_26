@@ -19,3 +19,7 @@ typedef struct {
 KemKeyPair ML_KEM_KeyGen();
 KemEncapsulation ML_KEM_Encaps(uint8_t* ek, size_t ekLen);
 KemDecapsulation ML_KEM_Decaps(uint8_t* c, size_t cLen, uint8_t* dk, size_t dkLen);
+
+void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z);
+void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m);
+void ML_KEM_Decaps_Internal(uint8_t* secret, uint8_t* c, uint8_t* dk);
