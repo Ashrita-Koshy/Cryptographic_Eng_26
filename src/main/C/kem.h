@@ -1,5 +1,5 @@
 #include "pke.h"
-#include <time.h> //TO-DO - REPLACE WITH ACTAUL RNG HEADER
+#include "rng.h"
 
 typedef struct {
     uint8_t ek[PKE_PUB_KEY_LEN];

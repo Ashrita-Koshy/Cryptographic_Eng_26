@@ -1,4 +1,5 @@
 #include "kem.h"
+#include "rng.h"
 
 void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     K_PKE_KeyGen(ek,dk,d);
@@ -13,16 +14,21 @@ KemKeyPair ML_KEM_KeyGen(){
     KemKeyPair keys;
     uint8_t d[RANDOM_LEN];
     uint8_t z[RANDOM_LEN];
-    //RNG GENERATOR SHOULD GO HERE
-    srand((unsigned int)time(NULL));
-    for (size_t i = 0; i < RANDOM_LEN; i++) {
-        d[i] = rand() % 256;
-        z[i] = rand() % 256;
+
+    //RNG GENERATOR 
+    if(randombytes(d, RANDOM_LEN) != 0){
+        //handle error
+        //clear the buffer on error
+        memset(&keys, 0, sizeof(KemKeyPair)); 
+        return keys; 
     }
-    //TO DO - HANDLE RNG ERROR
-    /*if((d == NULL) || (z == NULL)){
-        //return error indication
-    }*/
+    if(randombytes(z, RANDOM_LEN) != 0){
+        //handle error
+        //clear the buffer on error
+        memset(&keys, 0, sizeof(KemKeyPair)); 
+        return keys; 
+    }
+    
     ML_KEM_KeyGen_Internal(keys.ek,keys.dk,d,z);
     return keys;
 }
@@ -39,7 +45,6 @@ void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m)
     K_PKE_Encrypt(c,ek,m,messageKeyHash + SECRET_LEN);
 }
 
-//this should probably return something instead
 KemEncapsulation ML_KEM_Encaps(uint8_t* ek, size_t ekLen){
     KemEncapsulation encapsulation;
     if(ekLen != PKE_PUB_KEY_LEN){
@@ -54,12 +59,15 @@ KemEncapsulation ML_KEM_Encaps(uint8_t* ek, size_t ekLen){
     if(memcmp(test,ek,POLY_BYTE_LEN*K) != 0){
         //handle malformed key error
     }
-    //TO DO - REPLACE WITH RNG CODE
-    uint8_t m[RANDOM_LEN] = {0};
-    srand((unsigned int)time(NULL));
-    for (size_t i = 0; i < RANDOM_LEN; i++) {
-        m[i] = rand() % 256;
+    //RNG GENERATOR
+    uint8_t m[RANDOM_LEN];
+    if(randombytes(m, RANDOM_LEN) != 0){
+        //handle error
+        //clear the buffer on error
+        memset(&encapsulation, 0, sizeof(KemEncapsulation));
+        return encapsulation; 
     }
+
     ML_KEM_Encaps_Internal(encapsulation.k, encapsulation.c, ek, m);
     return encapsulation;
 }
