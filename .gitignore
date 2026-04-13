@@ -1,2 +1,3 @@
 src/main/sage/*.py
 .vscode/
+src/main/C/*.exe
