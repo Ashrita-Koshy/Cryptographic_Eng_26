@@ -2,11 +2,15 @@
 #define RNG_H
 
 #include <stdint.h>
-#include <stddef.h>
 
-void randombytes_init(uint8_t *entropy_input,
-                      uint8_t *personalization_string,
-                      int security_strength);
-int randombytes(uint8_t *buf, size_t len);
+// Initialize DRBG
+// entropy_input: 48-byte seed
+void randombytes_init(unsigned char *entropy_input,
+                      unsigned char *personalization,
+                      int            security_strength);
 
-#endif /* RNG_H */
+// Generate random bytes into buf
+// Returns 0 on success
+int randombytes(unsigned char *buf, unsigned long long len);
+
+#endif // RNG_H
