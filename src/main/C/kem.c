@@ -18,12 +18,12 @@ void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     if(randombytes(d, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error
-        return -1; 
+        return RANDOM_GEN_ERROR; 
     }
     if(randombytes(z, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error 
-        return -1; 
+        return RANDOM_GEN_ERROR; 
     }
     ML_KEM_KeyGen_Internal(keys->ek,keys->dk,d,z);
     return 0;
@@ -43,7 +43,7 @@ void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m)
 
 int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
     if(ekLen != PKE_PUB_KEY_LEN){
-        //handle size error
+        return KEY_SIZE_ERROR;
     }
     uint8_t test[PKE_PUB_KEY_LEN - 32];
     for(uint8_t i = 0; i < K; i++){
@@ -52,14 +52,14 @@ int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
         byteEncode(test + POLY_BYTE_LEN*i,poly,ENCODING_LEN);
     }
     if(memcmp(test,ek,POLY_BYTE_LEN*K) != 0){
-        //handle malformed key error
+        return MALFORMED_KEY_ERROR;
     }
     //RNG GENERATOR
     uint8_t m[RANDOM_LEN] = {0};
     if(randombytes(m, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error
-        return -1; 
+        return RANDOM_GEN_ERROR; 
     }
 
     ML_KEM_Encaps_Internal(encaps->k, encaps->c, ek, m);
@@ -93,15 +93,15 @@ void ML_KEM_Decaps_Internal(uint8_t* secret, uint8_t* c, uint8_t* dk){
 
 int ML_KEM_Decaps(KemDecapsulation * decaps, uint8_t* c, size_t cLen, uint8_t* dk, size_t dkLen){
     if(dkLen != KEM_DECAP_LEN){
-        //handle dkLen error
+        return KEY_SIZE_ERROR;
     }
     if(cLen != PKE_CIPHERTEX_LEN){
-        //handle ciphertext length error
+        return CIPHERTEXT_SIZE_ERROR;
     }
     uint8_t h[KEY_HASH_LEN];
     H(h,dk + PKE_PRV_KEY_LEN,PKE_PUB_KEY_LEN);
     if(memcmp(h,dk + KEY_HASH_OFFSET,KEY_HASH_LEN) != 0){
-        //handle key hash error
+        return MALFORMED_KEY_ERROR;
     }
     ML_KEM_Decaps_Internal(decaps->k,c,dk);
     return 0;
