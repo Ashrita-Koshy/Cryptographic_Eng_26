@@ -10,27 +10,26 @@ void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     memcpy(dk + PKE_PRV_KEY_LEN + PKE_PUB_KEY_LEN + KEY_HASH_LEN,z,RANDOM_LEN);
 }
 
-KemKeyPair ML_KEM_KeyGen(){
-    KemKeyPair keys;
-    uint8_t d[RANDOM_LEN];
-    uint8_t z[RANDOM_LEN];
+ int ML_KEM_KeyGen(KemKeyPair* keys){
+    uint8_t d[RANDOM_LEN] = {0};
+    uint8_t z[RANDOM_LEN] = {0};
 
     //RNG GENERATOR 
-    if(randombytes(d, RANDOM_LEN) != 0){
-        //handle error
-        //clear the buffer on error
-        memset(&keys, 0, sizeof(KemKeyPair)); 
-        return keys; 
-    }
-    if(randombytes(z, RANDOM_LEN) != 0){
-        //handle error
-        //clear the buffer on error
-        memset(&keys, 0, sizeof(KemKeyPair)); 
-        return keys; 
-    }
+    // if(randombytes(d, RANDOM_LEN) != 0){
+    //     //handle error
+    //     //clear the buffer on error
+    //     memset(&keys, 0, sizeof(KemKeyPair)); 
+    //     return keys; 
+    // }
+    // if(randombytes(z, RANDOM_LEN) != 0){
+    //     //handle error
+    //     //clear the buffer on error
+    //     memset(&keys, 0, sizeof(KemKeyPair)); 
+    //     return keys; 
+    // }
     
-    ML_KEM_KeyGen_Internal(keys.ek,keys.dk,d,z);
-    return keys;
+    ML_KEM_KeyGen_Internal(keys->ek,keys->dk,d,z);
+    return 0;
 }
 
 void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m){
@@ -45,8 +44,7 @@ void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m)
     K_PKE_Encrypt(c,ek,m,messageKeyHash + SECRET_LEN);
 }
 
-KemEncapsulation ML_KEM_Encaps(uint8_t* ek, size_t ekLen){
-    KemEncapsulation encapsulation;
+int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
     if(ekLen != PKE_PUB_KEY_LEN){
         //handle size error
     }
@@ -60,16 +58,16 @@ KemEncapsulation ML_KEM_Encaps(uint8_t* ek, size_t ekLen){
         //handle malformed key error
     }
     //RNG GENERATOR
-    uint8_t m[RANDOM_LEN];
-    if(randombytes(m, RANDOM_LEN) != 0){
+    uint8_t m[RANDOM_LEN] = {0};
+    /*if(randombytes(m, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error
         memset(&encapsulation, 0, sizeof(KemEncapsulation));
         return encapsulation; 
-    }
+    }*/
 
-    ML_KEM_Encaps_Internal(encapsulation.k, encapsulation.c, ek, m);
-    return encapsulation;
+    ML_KEM_Encaps_Internal(encaps->k, encaps->c, ek, m);
+    return 0;
 }
 
 void ML_KEM_Decaps_Internal(uint8_t* secret, uint8_t* c, uint8_t* dk){
@@ -97,8 +95,7 @@ void ML_KEM_Decaps_Internal(uint8_t* secret, uint8_t* c, uint8_t* dk){
     }
 }
 
-KemDecapsulation ML_KEM_Decaps(uint8_t* c, size_t cLen, uint8_t* dk, size_t dkLen){
-    KemDecapsulation decapsulation;
+int ML_KEM_Decaps(KemDecapsulation * decaps, uint8_t* c, size_t cLen, uint8_t* dk, size_t dkLen){
     if(dkLen != KEM_DECAP_LEN){
         //handle dkLen error
     }
@@ -110,7 +107,7 @@ KemDecapsulation ML_KEM_Decaps(uint8_t* c, size_t cLen, uint8_t* dk, size_t dkLe
     if(memcmp(h,dk + KEY_HASH_OFFSET,KEY_HASH_LEN) != 0){
         //handle key hash error
     }
-    ML_KEM_Decaps_Internal(decapsulation.k,c,dk);
-    return decapsulation;
+    ML_KEM_Decaps_Internal(decaps->k,c,dk);
+    return 0;
 }
 
