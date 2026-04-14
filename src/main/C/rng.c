@@ -43,16 +43,18 @@ static void aes256_ecb(const uint8_t key[KEYLEN],
 // this is just for host-side testing
 // later this part can be replaced with the board-side entropy source
 static uint8_t jitter_one_byte(void)
-{
+{    
     uint8_t byte = 0;
-
+    struct timespec t1, t2, resolution;
+    clock_getres(CLOCK_MONOTONIC, &resolution); 
+    clock_gettime(CLOCK_MONOTONIC, &t1);
     // build one byte by collecting 8 lsb values
     for (int bit = 0; bit < 8; bit++) {
-        struct timespec t1, t2;
+        
         volatile unsigned int dummy = 0;
 
         // get first timestamp
-        clock_gettime(CLOCK_MONOTONIC, &t1);
+        
 
         // add some small variable work in between
         for (volatile int j = 0; j < 500; j++)
@@ -60,9 +62,8 @@ static uint8_t jitter_one_byte(void)
 
         // get second timestamp
         clock_gettime(CLOCK_MONOTONIC, &t2);
-
         // use the lsb of the timing difference
-        long delta = t2.tv_nsec - t1.tv_nsec;
+        long delta = (t2.tv_nsec - t1.tv_nsec)/resolution.tv_nsec;
         byte |= ((uint8_t)(delta & 1)) << bit;
     }
 
@@ -77,7 +78,6 @@ static void collect_entropy(uint8_t *buf, size_t len)
         // oversample 4 times and xor them together
         for (int k = 0; k < 4; k++)
             acc ^= jitter_one_byte();
-
         buf[i] = acc;
     }
 }
@@ -110,7 +110,6 @@ static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
     // mix in provided_data with xor
     for (int i = 0; i < SEEDLEN; i++)
         tmp[i] ^= provided_data[i];
-
     // first 32 bytes become the new key
     memcpy(ctx->key, tmp, KEYLEN);
 

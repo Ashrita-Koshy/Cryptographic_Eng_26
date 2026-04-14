@@ -1,3 +1,6 @@
+#ifndef AUXILIARY_H
+#define AUXILIARY_H
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -26,3 +29,5 @@ void byteDecode(uint16_t* F, const uint8_t* B, uint8_t d);
 
 void sampleNTT(uint16_t* a, const uint8_t* B, const uint8_t col, const uint8_t row);
 void samplePolyCBD(uint16_t* f, const uint8_t* B);
+
+#endif

@@ -1,3 +1,6 @@
+#ifndef PKE_KYBER_H
+#define PKE_KYBER_H
+
 #include "config.h"
 #include "auxiliary.h"
 #include "ntt.h"
@@ -11,3 +14,5 @@ void computeW(uint16_t* w,uint16_t (*s)[MLKEM_N],uint16_t* upsilon,uint16_t (*u)
 void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d);
 void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uint8_t* r);
 void K_PKE_Decrypt(uint8_t* m, const uint8_t* dkPKE, const uint8_t* c);
+
+#endif

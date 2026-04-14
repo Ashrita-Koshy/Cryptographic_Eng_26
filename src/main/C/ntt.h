@@ -1,3 +1,6 @@
+#ifndef NTT_H
+#define NTT_H
+
 #include <stdint.h>
 #include <stddef.h>
 #include "config.h"
@@ -47,3 +50,5 @@ void ntt(uint16_t* f);
 void nttInverse(uint16_t* f);
 
 void multiplyNTT(uint16_t* h, const uint16_t* f, const uint16_t* g);
+
+#endif

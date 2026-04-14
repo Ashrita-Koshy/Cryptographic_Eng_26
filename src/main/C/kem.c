@@ -1,7 +1,6 @@
 #include "kem.h"
-#include "rng.h"
 
-void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
+static void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     K_PKE_KeyGen(ek,dk,d);
     memcpy(dk + PKE_PRV_KEY_LEN,ek,PKE_PUB_KEY_LEN);
     uint8_t h[KEY_HASH_LEN];
@@ -28,7 +27,7 @@ void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     return 0;
 }
 
-void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m){
+static void ML_KEM_Encaps_Internal(uint8_t* secret, uint8_t* c,uint8_t* ek, uint8_t* m){
     uint8_t keyHash[KEY_HASH_LEN];
     H(keyHash,ek,PKE_PUB_KEY_LEN);
     uint8_t messageKey[RANDOM_LEN + KEY_HASH_LEN];
@@ -66,7 +65,7 @@ int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
     return 0;
 }
 
-void ML_KEM_Decaps_Internal(uint8_t* secret, uint8_t* c, uint8_t* dk){
+static void ML_KEM_Decaps_Internal(uint8_t* secret, uint8_t* c, uint8_t* dk){
     //dkPKE is the first bits of dk
     //ekPKE is at index 384*k
     //ekPKE hash is at 768*k + 32

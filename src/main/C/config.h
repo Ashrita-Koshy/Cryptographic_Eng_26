@@ -1,3 +1,6 @@
+#ifndef ML_KEM_CONFIG_H
+#define ML_KEM_CONFIG_H
+
 #define MLKEM_Q 3329
 #define MLKEM_N  256
 #define K 4
@@ -26,3 +29,5 @@
 #define KEY_SIZE_ERROR -2
 #define MALFORMED_KEY_ERROR -3
 #define CIPHERTEXT_SIZE_ERROR -4
+
+#endif
