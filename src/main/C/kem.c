@@ -1,6 +1,5 @@
 #include "kem.h"
 #include "rng.h"
-#include <time.h>
 
 void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     K_PKE_KeyGen(ek,dk,d);
@@ -14,7 +13,7 @@ void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
  int ML_KEM_KeyGen(KemKeyPair* keys){
     uint8_t d[RANDOM_LEN] = {0};
     uint8_t z[RANDOM_LEN] = {0};
-
+    randombytes_init(NULL,NULL,256);
     if(randombytes(d, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error
@@ -56,6 +55,7 @@ int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
     }
     //RNG GENERATOR
     uint8_t m[RANDOM_LEN] = {0};
+    randombytes_init(NULL,NULL,256);
     if(randombytes(m, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error
