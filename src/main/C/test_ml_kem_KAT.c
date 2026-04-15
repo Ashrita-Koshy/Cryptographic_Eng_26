@@ -106,7 +106,10 @@ void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
 
     char *p_raw = read_file_to_string(prompt_file);
     char *e_raw = read_file_to_string(expected_file);
-    if (!p_raw || !e_raw) { printf("[-] Failed to load JSON files\n"); return; }
+    if (!p_raw || !e_raw) { 
+        printf("[-] Failed to load JSON files\n"); 
+        return; 
+    }
 
     cJSON *p_json = cJSON_Parse(p_raw);
     cJSON *e_json = cJSON_Parse(e_raw);
@@ -114,6 +117,7 @@ void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
 
     cJSON *group;
     cJSON_ArrayForEach(group, cJSON_GetObjectItem(p_json, "testGroups")) {
+        // Skip 512 and 768 test cases since our implementation only supports 1024.
         if (strcmp(cJSON_GetObjectItem(group, "parameterSet")->valuestring, "ML-KEM-1024") != 0) {
             skipped += cJSON_GetArraySize(cJSON_GetObjectItem(group, "tests"));
             continue;
@@ -128,7 +132,8 @@ void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
 
             hex_to_bytes(cJSON_GetObjectItem(test, "d")->valuestring, d);
             hex_to_bytes(cJSON_GetObjectItem(test, "z")->valuestring, z);
-
+            
+            // Use the internal KeyGen routine because ACVP provides deterministic seeds (d, z)
             ML_KEM_KeyGen_Internal(my_ek, my_dk, d, z);
 
             bytes_to_hex(my_ek, PUB_KEY_LEN, my_ek_hex);
@@ -147,8 +152,11 @@ void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
     printf("[SUCCESS] KeyGen Passed: %d (Skipped: %d)\n", passed, skipped);
 
 end:
-    cJSON_Delete(p_json); cJSON_Delete(e_json);
-    free(p_raw); free(e_raw);
+    // Cleanup allocated JSON objects and buffers before exiting the test routine
+    cJSON_Delete(p_json); 
+    cJSON_Delete(e_json);
+    free(p_raw); 
+    free(e_raw);
 }
 
 void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
@@ -157,11 +165,17 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
 
     char *p_raw = read_file_to_string(prompt_file);
     char *e_raw = read_file_to_string(expected_file);
-    if (!p_raw || !e_raw) { printf("[-] Failed to load JSON files\n"); return; }
+    if (!p_raw || !e_raw) { 
+        printf("[-] Failed to load JSON files\n"); 
+        return; 
+    }
 
     cJSON *p_json = cJSON_Parse(p_raw);
     cJSON *e_json = cJSON_Parse(e_raw);
-    if (!p_json || !e_json) { printf("[-] JSON Parse Error\n"); return; }
+    if (!p_json || !e_json) { 
+        printf("[-] JSON Parse Error\n"); 
+        return; 
+    }
 
     int passed = 0, skipped = 0;
     cJSON *groups = cJSON_GetObjectItem(p_json, "testGroups");
@@ -169,6 +183,7 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
     cJSON *group;
     cJSON_ArrayForEach(group, groups) {
         cJSON *pSet = cJSON_GetObjectItem(group, "parameterSet");
+        // Skip 512 and 768 test cases since our implementation only supports 1024
         if (!pSet || strcmp(pSet->valuestring, "ML-KEM-1024") != 0) {
             skipped += cJSON_GetArraySize(cJSON_GetObjectItem(group, "tests"));
             continue;
@@ -192,14 +207,19 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
                 char my_k_hex[SHARED_SEC_LEN*2+1], my_c_hex[CIPHERTEXT_LEN*2+1];
 
                 cJSON *ek_obj = cJSON_GetObjectItem(test, "ek");
+                // Different ACVP versions use different field names for the message seed
                 cJSON *m_obj = cJSON_GetObjectItem(test, "msg") ? cJSON_GetObjectItem(test, "msg") : 
                                (cJSON_GetObjectItem(test, "m") ? cJSON_GetObjectItem(test, "m") : cJSON_GetObjectItem(test, "payload"));
 
-                if (!ek_obj || !m_obj) { printf("[-] tcId %d: Missing input fields\n", tcId); goto end; }
+                if (!ek_obj || !m_obj) { 
+                    printf("[-] tcId %d: Missing input fields\n", tcId); 
+                    goto end; 
+                }
 
                 hex_to_bytes(ek_obj->valuestring, ek);
                 hex_to_bytes(m_obj->valuestring, m);
 
+                // Internal encapsulation is used because ACVP supplies the message seed directly
                 ML_KEM_Encaps_Internal(my_k, my_c, ek, m);
 
                 bytes_to_hex(my_k, SHARED_SEC_LEN, my_k_hex);
@@ -207,12 +227,18 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
 
                 cJSON *exp_k = cJSON_GetObjectItem(exp, "k");
                 cJSON *exp_c = cJSON_GetObjectItem(exp, "c");
-                if (!exp_k || !exp_c) { printf("[-] tcId %d: Missing expected fields\n", tcId); goto end; }
+                if (!exp_k || !exp_c) { 
+                    printf("[-] tcId %d: Missing expected fields\n", tcId); 
+                    goto end; 
+                }
 
                 if (strcasecmp(my_k_hex, exp_k->valuestring) == 0 &&
                     strcasecmp(my_c_hex, exp_c->valuestring) == 0) {
                     passed++;
-                } else { printf("[-] Encap mismatch at tcId %d\n", tcId); goto end; }
+                } else { 
+                    printf("[-] Encap mismatch at tcId %d\n", tcId); 
+                    goto end; 
+                }
             } 
             else if (strcmp(func, "decapsulation") == 0) {
                 uint8_t dk[PRIV_KEY_LEN], c[CIPHERTEXT_LEN], my_k[SHARED_SEC_LEN];
@@ -220,28 +246,46 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
 
                 cJSON *dk_obj = cJSON_GetObjectItem(test, "dk");
                 cJSON *c_obj = cJSON_GetObjectItem(test, "c");
-                if (!dk_obj || !c_obj) { printf("[-] tcId %d: Missing decap inputs\n", tcId); goto end; }
+                if (!dk_obj || !c_obj) { 
+                    printf("[-] tcId %d: Missing decap inputs\n", tcId); 
+                    goto end; 
+                }
 
                 hex_to_bytes(dk_obj->valuestring, dk);
                 hex_to_bytes(c_obj->valuestring, c);
 
+                // Internal decapsulation is used to directly test the implicit rejection logic
                 ML_KEM_Decaps_Internal(my_k, c, dk);
 
                 bytes_to_hex(my_k, SHARED_SEC_LEN, my_k_hex);
                 
                 cJSON *prompt_k_obj = cJSON_GetObjectItem(test, "k");
+                // For decapsulation, ACVP does not always provide the expected key.
+                // Instead, it indicates whether decapsulation should succeed or fail
+                // via the "testPassed" flag, which validates the implicit rejection rule.
                 cJSON *tp = cJSON_GetObjectItem(exp, "testPassed");
 
                 if (tp) { 
-                    if (!prompt_k_obj) { printf("[-] tcId %d: Missing prompt k\n", tcId); goto end; }
+                    if (!prompt_k_obj) { 
+                        printf("[-] tcId %d: Missing prompt k\n", tcId); 
+                        goto end; 
+                    }
                     int match = (strcasecmp(my_k_hex, prompt_k_obj->valuestring) == 0);
                     if (match == cJSON_IsTrue(tp)) passed++;
-                    else { printf("[-] Decap Rejection logic failed at tcId %d\n", tcId); goto end; }
+                    else { 
+                        printf("[-] Decap Rejection logic failed at tcId %d\n", tcId); goto end; 
+                    }
                 } else {
                     cJSON *exp_k = cJSON_GetObjectItem(exp, "k");
-                    if (!exp_k) { printf("[-] tcId %d: Missing expected k\n", tcId); goto end; }
+                    if (!exp_k) { 
+                        printf("[-] tcId %d: Missing expected k\n", tcId); 
+                        goto end; 
+                    }
                     if (strcasecmp(my_k_hex, exp_k->valuestring) == 0) passed++;
-                    else { printf("[-] Decap mismatch at tcId %d\n", tcId); goto end; }
+                    else { 
+                        printf("[-] Decap mismatch at tcId %d\n", tcId); 
+                        goto end; 
+                    }
                 }
             }
         }
@@ -249,8 +293,11 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
     printf("[SUCCESS] Encap/Decap Passed: %d (Skipped: %d)\n", passed, skipped);
 
 end:
-    cJSON_Delete(p_json); cJSON_Delete(e_json);
-    free(p_raw); free(e_raw);
+    // Cleanup allocated JSON objects and buffers before exiting the test routine
+    cJSON_Delete(p_json); 
+    cJSON_Delete(e_json);
+    free(p_raw); 
+    free(e_raw);
 }
 
 int main() {
