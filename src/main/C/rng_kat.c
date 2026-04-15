@@ -1,3 +1,8 @@
+// rng_kat.c
+ 
+//Deterministic random byte generator used ONLY for ACVP Known Answer Tests (KAT)
+//for ML-KEM as specified in FIPS 203.
+
 #include "rng.h"
 #include "fips202.h"
 #include <string.h>
@@ -5,6 +10,7 @@
 static uint8_t seed[48];
 static uint64_t ctr = 0;
 
+// Initialize deterministic seed from ACVP entropy input 
 void randombytes_init(uint8_t *entropy_input,
                       uint8_t *personalization_string,
                       int security_strength)
@@ -18,7 +24,8 @@ void randombytes_init(uint8_t *entropy_input,
     ctr = 0;
 }
 
-int randombytes(uint8_t *buf, size_t len)
+// Expand seed deterministically using SHAKE256 and counter 
+int randombytes(unsigned char *buf, unsigned long long len)
 {
     uint8_t in[56];
     memcpy(in, seed, 48);
