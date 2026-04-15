@@ -14,30 +14,32 @@ In addition to the core algorithm, this repository includes a testing pipeline t
 
 ## Repository Structure
 
-    ├── known_answers_tests/
-        ├── ML-KEM-keyGen-FIPS203/
-        └── ML-KEM-encapDecap-FIPS203/
-    ├── README.md
-    ├── aes.c
-    ├── aes.h
-    ├── auxiliary.c
-    ├── auxiliary.h
-    ├── cJSON.c
-    ├── cJSON.h
-    ├── config.h
-    ├── fips202.c
-    ├── fips202.h
-    ├── kem.c
-    ├── kem.h
-    ├── main.c
-    ├── ntt.c
-    ├── ntt.h
-    ├── pke.c
-    ├── pke.h
-    ├── rng.c
-    ├── rng.h
-    ├── test_ml_kem_KAT.c
-    └── test_ml_kem_KAT.h
+```
+├── known_answers_tests/
+    ├── ML-KEM-keyGen-FIPS203/
+    └── ML-KEM-encapDecap-FIPS203/
+├── README.md
+├── aes.c
+├── aes.h
+├── auxiliary.c
+├── auxiliary.h
+├── cJSON.c
+├── cJSON.h
+├── config.h
+├── fips202.c
+├── fips202.h
+├── kem.c
+├── kem.h
+├── main.c
+├── ntt.c
+├── ntt.h
+├── pke.c
+├── pke.h
+├── rng.c
+├── rng.h
+├── test_ml_kem_KAT.c
+└── test_ml_kem_KAT.h
+```
 
 ### Core Files
 
