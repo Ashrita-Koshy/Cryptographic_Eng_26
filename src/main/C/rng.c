@@ -2,7 +2,11 @@
 #include "aes.h"
 #include <string.h>
 #include <stdint.h>
-#include <time.h>
+#include <stdbool.h>
+#include "inc/hw_memmap.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/adc.h"
+#include "inc/hw_adc.h"
 
 #define KEYLEN   32
 #define BLOCKLEN 16
@@ -17,6 +21,7 @@ typedef struct {
 
 static CTR_DRBG_STATE drbg;
 static int drbg_initialized = 0;
+
 
 // tiny-AES-c wrapper
 // tiny-AES-c ecb works in-place, so copy in to out first
@@ -45,26 +50,21 @@ static void aes256_ecb(const uint8_t key[KEYLEN],
 static uint8_t jitter_one_byte(void)
 {    
     uint8_t byte = 0;
-    struct timespec t1, t2, resolution;
-    clock_getres(CLOCK_MONOTONIC, &resolution); 
-    clock_gettime(CLOCK_MONOTONIC, &t1);
     // build one byte by collecting 8 lsb values
-    for (int bit = 0; bit < 8; bit++) {
+    int bit;
+    uint32_t sample[1];
+    
+    for (bit = 0; bit < 8; bit++) {
         
-        volatile unsigned int dummy = 0;
+        //Obtains a temperature reading from the ADC sensor - Nolan
+        //reference section 4 of the peripheral library for API
+        ADCProcessorTrigger(ADC0_BASE, 3);
+        while (!ADCIntStatus(ADC0_BASE, 3, false));
+        ADCIntClear(ADC0_BASE, 3);
+        ADCSequenceDataGet(ADC0_BASE, 3, sample);
 
-        // get first timestamp
-        
-
-        // add some small variable work in between
-        for (volatile int j = 0; j < 500; j++)
-            dummy ^= j;
-
-        // get second timestamp
-        clock_gettime(CLOCK_MONOTONIC, &t2);
         // use the lsb of the timing difference
-        long delta = (t2.tv_nsec - t1.tv_nsec)/resolution.tv_nsec;
-        byte |= ((uint8_t)(delta & 1)) << bit;
+        byte |= ((uint8_t)(sample[0] & 1)) << bit;
     }
 
     return byte;
@@ -72,11 +72,12 @@ static uint8_t jitter_one_byte(void)
 
 static void collect_entropy(uint8_t *buf, size_t len)
 {
-    for (size_t i = 0; i < len; i++) {
+    size_t i;
+    for (i = 0; i < len; i++) {
         uint8_t acc = 0;
-
+        int k;
         // oversample 4 times and xor them together
-        for (int k = 0; k < 4; k++)
+        for (k = 0; k < 4; k++)
             acc ^= jitter_one_byte();
         buf[i] = acc;
     }
@@ -86,7 +87,8 @@ static void collect_entropy(uint8_t *buf, size_t len)
 static void increment_v(uint8_t v[BLOCKLEN])
 {
     // start from the last byte and carry backward if needed
-    for (int i = BLOCKLEN - 1; i >= 0; i--) {
+    int i;
+    for (i = BLOCKLEN - 1; i >= 0; i--) {
         if (++v[i] != 0)
             break;
     }
@@ -108,7 +110,8 @@ static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
     }
 
     // mix in provided_data with xor
-    for (int i = 0; i < SEEDLEN; i++)
+    int i;
+    for (i = 0; i < SEEDLEN; i++)
         tmp[i] ^= provided_data[i];
     // first 32 bytes become the new key
     memcpy(ctx->key, tmp, KEYLEN);
@@ -124,31 +127,27 @@ static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
 // if entropy_input is null, collect entropy here for now
 // entropy_input must point to at least 48 bytes if it is not null
 // personalization must also point to at least 48 bytes if it is used
-void randombytes_init(unsigned char *entropy_input,
-                      unsigned char *personalization,
-                      int            security_strength)
+void randombytes_init()
 {
+    //setting the ADC peripheral for temp readins - Nolan - See Section 4 of TivaWare Peripheral Library Guide
+    //usage is based on example provided from https://sites.google.com/site/luiselectronicprojects/tutorials/tiva-tutorials/tiva-adc/internal-temperature-sensor
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+    while (!SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0)){
+    }
+    ADCSequenceConfigure(ADC0_BASE, 3, ADC_TRIGGER_PROCESSOR, 0);
+    ADCSequenceStepConfigure(ADC0_BASE, 3, 0,
+        ADC_CTL_TS | ADC_CTL_IE | ADC_CTL_END);
+    ADCSequenceEnable(ADC0_BASE, 3);
+    ADCIntClear(ADC0_BASE, 3);
+    
     uint8_t seed_material[SEEDLEN];
-
-    // security_strength is kept for compatibility but not used here
-    (void)security_strength;
 
     // start from all-zero key and v
     memset(drbg.key, 0, KEYLEN);
     memset(drbg.v,   0, BLOCKLEN);
 
-    // use provided entropy if given
-    if (entropy_input != NULL)
-        memcpy(seed_material, entropy_input, SEEDLEN);
-    else
-        // otherwise collect host-side entropy for now
-        collect_entropy(seed_material, SEEDLEN);
+    collect_entropy(seed_material, SEEDLEN);
 
-    // mix in personalization if provided
-    if (personalization != NULL) {
-        for (int i = 0; i < SEEDLEN; i++)
-            seed_material[i] ^= personalization[i];
-    }
 
     // initialize internal drbg state from seed material
     ctr_drbg_update(seed_material, &drbg);
@@ -169,7 +168,7 @@ int randombytes(unsigned char *buf, unsigned long long len)
         return -1;
 
     // fail if drbg has not been initialized yet
-    if (!drbg_initialized)
+    if ((!drbg_initialized || !SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0)))
         return -1;
 
     uint8_t block[BLOCKLEN];

@@ -3,21 +3,22 @@
 void generateVariables(uint8_t* rho, uint8_t* sigma, uint16_t (*A)[K][MLKEM_N], uint16_t (*s)[MLKEM_N], uint16_t (*e1)[MLKEM_N], uint16_t *e2){
     //these for loops can probably be unrolled
     //generate A
-    for(uint8_t i = 0; i < K; i++){
-        for(uint8_t j = 0; j < K; j++){
+    uint8_t i, j;
+    for(i = 0; i < K; i++){
+        for(j = 0; j < K; j++){
             sampleNTT(A[i][j],rho,j,i);
         }
     }
     //generate s
     uint8_t seedCBD[CBD_SEED_LEN] = {0};
-    for(uint8_t i = 0; i < K; i++){
+    for(i = 0; i < K; i++){
         PRF(seedCBD,CBD_SEED_LEN,sigma,KEY_SEED_LEN);
         samplePolyCBD(s[i],seedCBD);
         ntt(s[i]);
         sigma[RANDOM_LEN] = sigma[RANDOM_LEN] + 1;
     }
     //generate e or e1
-    for(uint8_t i = 0; i < K; i++){
+    for(i = 0; i < K; i++){
         PRF(seedCBD,CBD_SEED_LEN,sigma,KEY_SEED_LEN);
         samplePolyCBD(e1[i],seedCBD);
         if (e2 == NULL){
@@ -33,37 +34,40 @@ void generateVariables(uint8_t* rho, uint8_t* sigma, uint16_t (*A)[K][MLKEM_N], 
 
 void generatePublicKey(uint16_t (*t)[MLKEM_N], uint16_t (*A)[K][MLKEM_N], uint16_t (*s)[MLKEM_N], uint16_t (*e)[MLKEM_N]){
     //t = A*s
-    for(uint8_t i = 0; i < K; i++){
-        for(uint8_t j = 0; j < K; j++){
+    uint16_t i, j, k;
+    for(i = 0; i < K; i++){
+        for(j = 0; j < K; j++){
             uint16_t h[MLKEM_N];
             multiplyNTT(h,A[i][j],s[j]);
-            for(uint16_t k = 0; k < MLKEM_N; k++){
+            for(k = 0; k < MLKEM_N; k++){
                 t[i][k] = (t[i][k] + h[k]) % MLKEM_Q;
             }
         }
     }
     //t = t + e
-    for(uint8_t i = 0; i < K; i++){
-        for(uint16_t j = 0; j < MLKEM_N; j++){
+    for(i = 0; i < K; i++){
+        for(j = 0; j < MLKEM_N; j++){
             t[i][j] = (t[i][j] + e[i][j]) % MLKEM_Q;
         }
     }
 }
 
 void generateU(uint16_t (*u)[MLKEM_N],uint16_t (*t)[MLKEM_N],uint16_t (*A)[K][MLKEM_N],uint16_t (*y)[MLKEM_N],uint16_t (*e1)[MLKEM_N]){
-    for(uint8_t i = 0; i < K; i++){
-        for(uint8_t j = 0; j < K; j++){
+    //U = A^T * y
+    uint16_t i, j, k;
+    for(i = 0; i < K; i++){
+        for(j = 0; j < K; j++){
             uint16_t h[MLKEM_N];
             multiplyNTT(h,A[j][i],y[j]);
-            for(uint16_t k = 0; k < MLKEM_N; k++){
+            for(k = 0; k < MLKEM_N; k++){
                 u[i][k] = (u[i][k] + h[k]) % MLKEM_Q;
             }
         }
         nttInverse(u[i]);
     }
-    //U = U + e1
-    for(uint8_t i = 0; i < K; i++){
-        for(uint16_t j = 0; j < MLKEM_N; j++){
+    //U = U + e1 = A^T*y + e1
+    for(i = 0; i < K; i++){
+        for(j = 0; j < MLKEM_N; j++){
             u[i][j] = (u[i][j] + e1[i][j]) % MLKEM_Q;
         }
     }
@@ -73,35 +77,37 @@ void generateUpsilon(uint16_t* upsilon, const uint8_t* m,uint16_t (*t)[MLKEM_N],
     //generate mu from m
     uint16_t mu [MLKEM_N];
     byteDecode(mu,m,1);
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    uint16_t i, k;
+    for(i = 0; i < MLKEM_N; i++){
         mu[i] = decompress(mu[i],1);
     }
     //upsilon = t transpose * y
-    for(uint8_t i = 0; i < K; i++){
+    for(i = 0; i < K; i++){
         uint16_t h[MLKEM_N];
         multiplyNTT(h,t[i],y[i]);
-        for(uint16_t k = 0; k < MLKEM_N; k++){
+        for(k = 0; k < MLKEM_N; k++){
                 upsilon[k] = (upsilon[k] + h[k]) % MLKEM_Q;
         }
     }
     //upsilon = upsilon + e2 + mu
     nttInverse(upsilon);
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    for(i = 0; i < MLKEM_N; i++){
         upsilon[i] = (upsilon[i] + e2[i]) % MLKEM_Q;
         upsilon[i] = (upsilon[i] + mu[i]) % MLKEM_Q;
     }
 }
 
-void computeW(uint16_t* w,uint16_t (*s)[MLKEM_N],uint16_t* upsilon,uint16_t (*u)[MLKEM_N]){
-    for(uint8_t i = 0; i < K; i++){
+void generateW(uint16_t* w,uint16_t (*s)[MLKEM_N],uint16_t* upsilon,uint16_t (*u)[MLKEM_N]){
+    uint16_t i, k;
+    for(i = 0; i < K; i++){
         uint16_t h[MLKEM_N];
         multiplyNTT(h,s[i],u[i]);
-        for(uint16_t k = 0; k < MLKEM_N; k++){
+        for(k = 0; k < MLKEM_N; k++){
                 w[k] = (w[k] + h[k]) % MLKEM_Q;
         }
     }
     nttInverse(w);
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    for(i = 0; i < MLKEM_N; i++){
         int16_t difference = ((int16_t)upsilon[i] - w[i]) % MLKEM_Q;
         w[i] = (difference < 0) ? (uint16_t)(difference + MLKEM_Q) : (uint16_t)difference;
         w[i] = compress(w[i],1);
@@ -115,6 +121,7 @@ void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
     bytes[RANDOM_LEN] = K;
     uint8_t seed[PKE_SEED_KEN];
     G(seed,bytes,KEY_SEED_LEN);
+
     //reuse bytes array to store sigma + N
     memcpy(bytes,seed + RANDOM_LEN,RANDOM_LEN);
     bytes[RANDOM_LEN] = 0;
@@ -130,7 +137,8 @@ void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
     generatePublicKey(t,A,s,e);
 
     //byte encoding - also could be unrolled
-    for(uint8_t i = 0; i < K; i++){
+    uint8_t i;
+    for(i = 0; i < K; i++){
         byteEncode(ekPKE + POLY_BYTE_LEN*i,t[i],ENCODING_LEN);
         byteEncode(dkPKE + POLY_BYTE_LEN*i,s[i],ENCODING_LEN);
     }
@@ -142,7 +150,8 @@ void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uin
     uint8_t seedPRF[KEY_SEED_LEN];
     //decode public key, rho and randomness    
     uint16_t t[K][MLKEM_N];
-    for(uint8_t i = 0; i < K; i++){
+    uint16_t i, j;
+    for(i = 0; i < K; i++){
         byteDecode(t[i],ekPKE + POLY_BYTE_LEN*i,ENCODING_LEN);
     }
     uint8_t rho[RANDOM_LEN];
@@ -162,13 +171,13 @@ void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uin
     uint16_t upsilon [MLKEM_N] = {0};
     generateUpsilon(upsilon,m,t,y,e2);
     //encode ciphertext
-    for(uint8_t i = 0; i < K; i++){
-        for(uint16_t j = 0; j < MLKEM_N; j++){
+    for(i = 0; i < K; i++){
+        for(j = 0; j < MLKEM_N; j++){
             u[i][j] = compress(u[i][j],D_U);
         }
         byteEncode(c + D_U_ENCODING_LEN*i,u[i],D_U);
     }
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    for(i = 0; i < MLKEM_N; i++){
             upsilon[i] = compress(upsilon[i],D_UPSILON);
     }
     byteEncode(c + D_U_ENCODING_LEN*K,upsilon,D_UPSILON);
@@ -183,26 +192,27 @@ void K_PKE_Decrypt(uint8_t* m, const uint8_t* dkPKE, const uint8_t* c){
     memcpy(c2,c + C_1_LEN,C_2_LEN);
     //extract u and upsilon
     uint16_t u [K][MLKEM_N];
-    for(uint8_t i = 0; i < K; i++){
+    uint16_t i, j;
+    for(i = 0; i < K; i++){
         byteDecode(u[i],c1 + D_U_ENCODING_LEN*i,D_U);
-        for(uint16_t j = 0; j < MLKEM_N; j++){
+        for(j = 0; j < MLKEM_N; j++){
             u[i][j] = decompress(u[i][j],D_U);
         }
         ntt(u[i]);
     }
     uint16_t upsilon [MLKEM_N];
     byteDecode(upsilon,c2,D_UPSILON);
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    for(i = 0; i < MLKEM_N; i++){
         upsilon[i] = decompress(upsilon[i],D_UPSILON);
     }
     //extract secret key
     uint16_t s[K][MLKEM_N];
-    for(uint8_t i = 0; i < K; i++){
+    for(i = 0; i < K; i++){
         byteDecode(s[i],dkPKE + POLY_BYTE_LEN*i,ENCODING_LEN);
     }
     //compute w
     uint16_t w[MLKEM_N] = {0};
-    computeW(w,s,upsilon,u);
+    generateW(w,s,upsilon,u);
     //encode message
     byteEncode(m,w,1);
 }
