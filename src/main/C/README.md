@@ -14,7 +14,6 @@ In addition to the core algorithm, this repository includes a testing pipeline t
 
 ## Repository Structure
 
-    .
     ├── known_answers_tests/
         ├── ML-KEM-keyGen-FIPS203/
         └── ML-KEM-encapDecap-FIPS203/
@@ -42,7 +41,7 @@ In addition to the core algorithm, this repository includes a testing pipeline t
 
 ### Core Files
 
-- kem.c  
+- **`kem.c**
   Core implementation of ML-KEM-1024
   - key generation
   - encapsulation
