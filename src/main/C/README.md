@@ -44,34 +44,34 @@ In addition to the core algorithm, this repository includes a testing pipeline t
 
 ### Core Files
 
-- **`kem.c`**  
+- **`kem.c`** / **`kem.h`**  
   Core implementation of ML-KEM-1024
   - key generation
   - encapsulation
   - decapsulation
 
-- **`pke.c`**  
+- **`pke.c`** / **`pke.h`**  
   Underlying Kyber-PKE implementation
   - public-key generation
   - encryption
   - decryption
 
-- **`ntt.c`**  
+- **`ntt.c`** / **`ntt.h`**  
   Number Theoretic Transform implementation
   - forward NTT
   - inverse NTT
   - NTT multiplication
 
-- **`auxiliary.c`**  
+- **`auxiliary.c`** / **`auxiliary.h`**  
   Supporting arithmetic and encoding routines
   - compression / decompression
   - byte encoding / decoding
   - sampling support
 
-- **`fips202.c`**  
+- **`fips202.c`** / **`fips202.h`**  
   SHA-3 / SHAKE implementation used by ML-KEM
 
-- **`rng.c`**  
+- **`rng.c`** / **`rng.h`**  
   RNG support for top-level API execution
   - AES-256 based CTR-DRBG
   - ADC-based seed collection
@@ -82,7 +82,7 @@ In addition to the core algorithm, this repository includes a testing pipeline t
   - runs key generation, encapsulation, and decapsulation
   - checks whether both sides derive the same shared secret
 
-- **`test_ml_kem_KAT.c`**  
+- **`test_ml_kem_KAT.c`** / **`test_ml_kem_KAT.h`**  
   ACVP validation program
   - parses official NIST test vectors
   - validates key generation / encapsulation / decapsulation
@@ -93,6 +93,12 @@ In addition to the core algorithm, this repository includes a testing pipeline t
   - ML-KEM-keyGen-FIPS203/ -> key generation validation
   - ML-KEM-encapDecap-FIPS203/ -> encapsulation/decapsulation validation
 
+- **`aes.c`** / **`aes.h`**  
+  AES implementation used by the RNG code
+
+- **`config.h`**  
+  Global constants and parameter definitions for ML-KEM-1024
+  
 ---
 
 ## Prerequisites
