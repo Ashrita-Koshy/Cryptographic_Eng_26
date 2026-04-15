@@ -1,33 +1,118 @@
 # A C Executable Specification of ML-KEM-1024 with ACVP Validation
 
 ## Overview
-This repository provides a low-level executable specification of the ML-KEM-1024 key encapsulation mechanism based on **NIST FIPS 203**.
+This repository provides a C executable specification of the ML-KEM-1024 key encapsulation mechanism based on NIST FIPS 203.
 
-The implementation is written in **C** to clearly handle polynomial arithmetic (e.g., NTT, modular operations).
+The implementation is written in C to support low-level execution of the ML-KEM-1024 procedures, including polynomial arithmetic, Kyber-PKE components, top-level key generation / encapsulation / decapsulation, and runtime randomness generation.
 
 In addition to the core algorithm, this repository includes a testing pipeline that verifies:
-- internal functional correctness (mathematical + algorithm level)
-- compliance with **NIST ACVP Known Answer Tests (KATs)**
+- internal functional correctness
+- compliance with NIST ACVP Known Answer Tests (KATs)
+- board-side execution on the target platform
+
+---
+
+## Repository Structure
+
+    .
+    ├── known_answers_tests/
+        ├── ML-KEM-keyGen-FIPS203/
+        └── ML-KEM-encapDecap-FIPS203/
+    ├── README.md
+    ├── aes.c
+    ├── aes.h
+    ├── auxiliary.c
+    ├── auxiliary.h
+    ├── cJSON.c
+    ├── cJSON.h
+    ├── config.h
+    ├── fips202.c
+    ├── fips202.h
+    ├── kem.c
+    ├── kem.h
+    ├── main.c
+    ├── ntt.c
+    ├── ntt.h
+    ├── pke.c
+    ├── pke.h
+    ├── rng.c
+    ├── rng.h
+    ├── test_ml_kem_KAT.c
+    └── test_ml_kem_KAT.h
+
+### Core Files
+
+- kem.c
+  Core implementation of ML-KEM-1024
+  - key generation
+  - encapsulation
+  - decapsulation
+
+- pke.c
+  Underlying Kyber-PKE implementation
+  - public-key generation
+  - encryption
+  - decryption
+
+- ntt.c
+  Number Theoretic Transform implementation
+  - forward NTT
+  - inverse NTT
+  - NTT multiplication
+
+- auxiliary.c
+  Supporting arithmetic and encoding routines
+  - compression / decompression
+  - byte encoding / decoding
+  - sampling support
+
+- fips202.c
+  SHA-3 / SHAKE implementation used by ML-KEM
+
+- rng.c
+  RNG support for top-level API execution
+  - AES-256 based CTR-DRBG
+  - ADC-based seed collection
+  - randombytes() interface
+
+- main.c
+  Board-side execution test
+  - runs key generation, encapsulation, and decapsulation
+  - checks whether both sides derive the same shared secret
+
+- test_ml_kem_KAT.c
+  ACVP validation program
+  - parses official NIST test vectors
+  - validates key generation / encapsulation / decapsulation
+  - verifies implicit rejection behavior
+
+- known_answers_tests/
+  JSON-formatted ACVP test vectors from NIST
+  - ML-KEM-keyGen-FIPS203/ -> key generation validation
+  - ML-KEM-encapDecap-FIPS203/ -> encapsulation/decapsulation validation
+
+---
+
+## Prerequisites
+
+- C compiler
+- Texas Instruments Code Composer Studio (CCS)
+- TI compiler / CCS project setup
+- TivaWare / TM4C1294 device support
+- TM4C1294 Connected LaunchPad
 
 ---
 
 ## Usage
 
-### 1. Run Internal Tests
+### 1. Run ACVP (KAT) Validation
 
-Validates mathematical components and executes a full KEM flow:
+Validates the implementation against official NIST test vectors:
 
+    test_ml_kem_KAT.c
 
+### 2. Run Board-Side Execution
 
----
+Runs the top-level ML-KEM-1024 flow on the target board:
 
-### 2. Run ACVP (KAT) Validation
-
-Validates implementation against official NIST test vectors:
-
-```bash
-gcc !(test).c -o test_ml_kem_KAT
-./test_ml_kem_KAT
-```
-
----  
+    main.c
