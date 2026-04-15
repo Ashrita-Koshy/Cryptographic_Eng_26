@@ -4,8 +4,6 @@
 #include <stdint.h>
 #include "cJSON.h"
 #include "kem.h"  
-#include "rng.h"
-
 
 #define PUB_KEY_LEN     1568
 #define PRIV_KEY_LEN    3168
@@ -152,7 +150,7 @@ void test_acvp_keygen(const char *prompt_file, const char *expected_file) {
     printf("[SUCCESS] KeyGen Passed: %d (Skipped: %d)\n", passed, skipped);
 
 end:
-    // Cleanup allocated JSON objects and buffers before exiting the test routine
+    // Cleanup allocated JSON objects and buffers before exiting the test function
     cJSON_Delete(p_json); 
     cJSON_Delete(e_json);
     free(p_raw); 
@@ -207,7 +205,7 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
                 char my_k_hex[SHARED_SEC_LEN*2+1], my_c_hex[CIPHERTEXT_LEN*2+1];
 
                 cJSON *ek_obj = cJSON_GetObjectItem(test, "ek");
-                // Different ACVP versions use different field names for the message seed
+                // Different ACVP versions use different names for the message seed
                 cJSON *m_obj = cJSON_GetObjectItem(test, "msg") ? cJSON_GetObjectItem(test, "msg") : 
                                (cJSON_GetObjectItem(test, "m") ? cJSON_GetObjectItem(test, "m") : cJSON_GetObjectItem(test, "payload"));
 
@@ -293,7 +291,7 @@ void test_acvp_encap_decap(const char *prompt_file, const char *expected_file) {
     printf("[SUCCESS] Encap/Decap Passed: %d (Skipped: %d)\n", passed, skipped);
 
 end:
-    // Cleanup allocated JSON objects and buffers before exiting the test routine
+    // Cleanup allocated JSON objects and buffers before exiting the test function
     cJSON_Delete(p_json); 
     cJSON_Delete(e_json);
     free(p_raw); 
