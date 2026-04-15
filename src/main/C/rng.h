@@ -5,9 +5,7 @@
 
 // Initialize DRBG
 // entropy_input: 48-byte seed
-void randombytes_init(unsigned char *entropy_input,
-                      unsigned char *personalization,
-                      int            security_strength);
+void randombytes_init();
 
 // Generate random bytes into buf
 // Returns 0 on success

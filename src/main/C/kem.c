@@ -12,7 +12,7 @@ static void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t
  int ML_KEM_KeyGen(KemKeyPair* keys){
     uint8_t d[RANDOM_LEN] = {0};
     uint8_t z[RANDOM_LEN] = {0};
-    randombytes_init(NULL,NULL,256);
+    randombytes_init();
     if(randombytes(d, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error
@@ -44,7 +44,8 @@ int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
         return KEY_SIZE_ERROR;
     }
     uint8_t test[PKE_PUB_KEY_LEN - 32];
-    for(uint8_t i = 0; i < K; i++){
+    uint8_t i;
+    for(i = 0; i < K; i++){
         uint16_t poly[MLKEM_N];
         byteDecode(poly,ek + POLY_BYTE_LEN*i,ENCODING_LEN);
         byteEncode(test + POLY_BYTE_LEN*i,poly,ENCODING_LEN);
@@ -54,7 +55,7 @@ int ML_KEM_Encaps(KemEncapsulation* encaps, uint8_t* ek, size_t ekLen){
     }
     //RNG GENERATOR
     uint8_t m[RANDOM_LEN] = {0};
-    randombytes_init(NULL,NULL,256);
+    randombytes_init();
     if(randombytes(m, RANDOM_LEN) != 0){
         //handle error
         //clear the buffer on error

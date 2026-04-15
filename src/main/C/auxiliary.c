@@ -14,20 +14,17 @@ uint16_t decompress(uint16_t y, uint8_t d) {
 
 void byteEncode(uint8_t* B, const uint16_t* F, uint8_t d){
     uint8_t* b = malloc(MLKEM_N * d * sizeof(uint8_t));
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    size_t i, j;
+    for(i = 0; i < MLKEM_N; i++){
         uint16_t a = F[i];
-            for(uint8_t j = 0; j < d; j++){
+            for(j = 0; j < d; j++){
                 b[i*d + j] = a & 1;
                 a = (a - b[i*d + j])/2;
             }
     }
-    //B = bitsToBytes(b,(32*d));
-    //should do error handling here too
-    //bytes is of size l
-    for (size_t i = 0; i < 32*d; i++) {
-        //printf("i: %d\n",i);
+    for (i = 0; i < 32*d; i++) {
         B[i] = 0;
-        for (size_t j = 0; j < 8; j++) {
+        for (j = 0; j < 8; j++) {
             B[i] |= (b[8 * i + j] & 1) << j;
         }
     }
@@ -36,15 +33,16 @@ void byteEncode(uint8_t* B, const uint16_t* F, uint8_t d){
 
 void byteDecode(uint16_t* F, const uint8_t* B, uint8_t d){
     uint8_t* b = malloc(32 * d * 8 * sizeof(uint8_t));
-    for (size_t i = 0; i < 32*d; i++) {
-        for (size_t j = 0; j < 8; j++) {
+    size_t i, j;
+    for (i = 0; i < 32*d; i++) {
+        for (j = 0; j < 8; j++) {
             b[8 * i + j] = (B[i] >> j) & 1;
         }
     }
     uint16_t m = m = (d < 12) ? ((uint16_t)1 << d) : MLKEM_Q;
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    for(i = 0; i < MLKEM_N; i++){
         uint16_t sum = 0;
-        for(uint8_t j = 0; j < d; j++){
+        for(j = 0; j < d; j++){
             sum += (uint16_t)b[i*d + j] << j;
         }
         F[i] = sum % m;
@@ -78,18 +76,15 @@ void sampleNTT(uint16_t* a, const uint8_t* B, const uint8_t j, const uint8_t i){
 
 void samplePolyCBD(uint16_t* f, const uint8_t* B){
     uint8_t b[8*64*MLKEM_ETA] = {0};
-
-    for (size_t i = 0; i < (64*MLKEM_ETA); i++) {
-        for (size_t j = 0; j < 8; j++) {
+    size_t i, j;
+    for (i = 0; i < (64*MLKEM_ETA); i++) {
+        for (j = 0; j < 8; j++) {
             b[8 * i + j] = (B[i] >> j) & 1;
         }
     }
-
-    //uint8_t* b = bytesToBits(B,(64 * ETA));
-    for(uint16_t i = 0; i < MLKEM_N; i++){
+    for(i = 0; i < MLKEM_N; i++){
         int16_t x = b[2*i*MLKEM_ETA] + b[2*i*MLKEM_ETA + 1];
         int16_t y = b[2*i*MLKEM_ETA + MLKEM_ETA] + b[2*i*MLKEM_ETA + MLKEM_ETA + 1];
         f[i] = (uint16_t)((((x-y)% MLKEM_Q) + MLKEM_Q) % MLKEM_Q); //handles negative modulo case
     }
-    //free(b);
 }
