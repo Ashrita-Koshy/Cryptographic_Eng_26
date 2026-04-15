@@ -42,51 +42,51 @@ In addition to the core algorithm, this repository includes a testing pipeline t
 
 ### Core Files
 
-- kem.c
+- kem.c  
   Core implementation of ML-KEM-1024
   - key generation
   - encapsulation
   - decapsulation
 
-- pke.c
+- pke.c  
   Underlying Kyber-PKE implementation
   - public-key generation
   - encryption
   - decryption
 
-- ntt.c
+- ntt.c  
   Number Theoretic Transform implementation
   - forward NTT
   - inverse NTT
   - NTT multiplication
 
-- auxiliary.c
+- auxiliary.c  
   Supporting arithmetic and encoding routines
   - compression / decompression
   - byte encoding / decoding
   - sampling support
 
-- fips202.c
+- fips202.c  
   SHA-3 / SHAKE implementation used by ML-KEM
 
-- rng.c
+- rng.c  
   RNG support for top-level API execution
   - AES-256 based CTR-DRBG
   - ADC-based seed collection
   - randombytes() interface
 
-- main.c
+- main.c  
   Board-side execution test
   - runs key generation, encapsulation, and decapsulation
   - checks whether both sides derive the same shared secret
 
-- test_ml_kem_KAT.c
+- test_ml_kem_KAT.c  
   ACVP validation program
   - parses official NIST test vectors
   - validates key generation / encapsulation / decapsulation
   - verifies implicit rejection behavior
 
-- known_answers_tests/
+- known_answers_tests/  
   JSON-formatted ACVP test vectors from NIST
   - ML-KEM-keyGen-FIPS203/ -> key generation validation
   - ML-KEM-encapDecap-FIPS203/ -> encapsulation/decapsulation validation
