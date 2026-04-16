@@ -1,4 +1,4 @@
-# A C Executable Specification of ML-KEM-1024 with ACVP Validation
+# A C Low-level Implementation of ML-KEM-1024 for the TM4C1294 Platform with ACVP Validation  
 
 ## Overview
 This repository provides a C executable specification of the ML-KEM-1024 key encapsulation mechanism based on NIST FIPS 203.
