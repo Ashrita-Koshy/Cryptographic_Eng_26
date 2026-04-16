@@ -119,6 +119,8 @@ Validates the implementation against official NIST test vectors:
 
 ```bash
 test_ml_kem_KAT.c
+gcc !(main|rng|kem).c -o test_ml_kem_KAT
+./test_ml_kem_KAT
 ```
 
 ---

@@ -1,4 +1,5 @@
 #include "kem.h"
+#include "rng.h"
 
 static void ML_KEM_KeyGen_Internal(uint8_t* ek, uint8_t* dk, uint8_t* d, uint8_t* z){
     K_PKE_KeyGen(ek,dk,d);
