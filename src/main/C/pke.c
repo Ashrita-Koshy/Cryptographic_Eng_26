@@ -1,7 +1,17 @@
 #include "pke.h"
 
+/*
+Function: generateVariables
+Parameters: 
+    - Random seeds rho, sigma
+    - Polynomial Matrix A
+    - Polynomial Vectors s, e1
+    - Optional Polynomial e2
+Description:
+    - Uses the sampling algorithms defined in "auxiliary.h" to generate polynomials
+    for the Kyber PKE scheme, storing results in arrays passed by reference.
+*/
 void generateVariables(uint8_t* rho, uint8_t* sigma, uint16_t (*A)[K][MLKEM_N], uint16_t (*s)[MLKEM_N], uint16_t (*e1)[MLKEM_N], uint16_t *e2){
-    //these for loops can probably be unrolled
     //generate A
     uint8_t i, j;
     for(i = 0; i < K; i++){
@@ -26,12 +36,23 @@ void generateVariables(uint8_t* rho, uint8_t* sigma, uint16_t (*A)[K][MLKEM_N], 
         }
         sigma[RANDOM_LEN] = sigma[RANDOM_LEN] + 1;
     }
+    //generate e2
     if(e2 != NULL){
         PRF(seedCBD,CBD_SEED_LEN,sigma,KEY_SEED_LEN);
         samplePolyCBD(e2,seedCBD);
     }
 }
 
+/*
+Function: generatePublicKey
+Parameters:
+    - Polynomial Vectors t, s
+    - Polynomial Matrix A
+    - Polynomial e
+Description:
+    - Generates a public polynomial vector, t, using the algoirthms defined in FIPS 203
+    and ntt multiplication function from ntt.h
+*/
 void generatePublicKey(uint16_t (*t)[MLKEM_N], uint16_t (*A)[K][MLKEM_N], uint16_t (*s)[MLKEM_N], uint16_t (*e)[MLKEM_N]){
     //t = A*s
     uint16_t i, j, k;
@@ -44,7 +65,7 @@ void generatePublicKey(uint16_t (*t)[MLKEM_N], uint16_t (*A)[K][MLKEM_N], uint16
             }
         }
     }
-    //t = t + e
+    //t = t + e = A*s + e
     for(i = 0; i < K; i++){
         for(j = 0; j < MLKEM_N; j++){
             t[i][j] = (t[i][j] + e[i][j]) % MLKEM_Q;
@@ -52,6 +73,15 @@ void generatePublicKey(uint16_t (*t)[MLKEM_N], uint16_t (*A)[K][MLKEM_N], uint16
     }
 }
 
+/*
+Function: generateU
+Parameters: 
+    - Polynomial vector u, t, y, e1
+    - Polynomial matrix A
+Description:
+    - Generates the polynomial vector u as defined in FIPS 203. Uses the ntt
+    functions defined in ntt.h
+*/
 void generateU(uint16_t (*u)[MLKEM_N],uint16_t (*t)[MLKEM_N],uint16_t (*A)[K][MLKEM_N],uint16_t (*y)[MLKEM_N],uint16_t (*e1)[MLKEM_N]){
     //U = A^T * y
     uint16_t i, j, k;
@@ -73,6 +103,15 @@ void generateU(uint16_t (*u)[MLKEM_N],uint16_t (*t)[MLKEM_N],uint16_t (*A)[K][ML
     }
 }
 
+/*
+Function: generateUpsilon
+Parameters: 
+    - Polynomial vector upsilon, t, y
+    - Byte message m
+Description:
+    - Generates the polynomial upsilon as specified in FIPS 203. Uses ntt functions
+    from ntt.h, and byte decoding / compression functions from auxiliary.h
+*/
 void generateUpsilon(uint16_t* upsilon, const uint8_t* m,uint16_t (*t)[MLKEM_N],uint16_t (*y)[MLKEM_N],uint16_t* e2){
     //generate mu from m
     uint16_t mu [MLKEM_N];
@@ -97,6 +136,15 @@ void generateUpsilon(uint16_t* upsilon, const uint8_t* m,uint16_t (*t)[MLKEM_N],
     }
 }
 
+/*
+Function: generateW
+Parameters: 
+    - Polynomial w
+    - Polynomial vectors s, u
+Description:
+    - Generates the polynomial vector u as defined in FIPS 203. Uses the ntt
+    functions defined in ntt.h and compression algorithm from auxiliary.h
+*/
 void generateW(uint16_t* w,uint16_t (*s)[MLKEM_N],uint16_t* upsilon,uint16_t (*u)[MLKEM_N]){
     uint16_t i, k;
     for(i = 0; i < K; i++){
@@ -114,23 +162,33 @@ void generateW(uint16_t* w,uint16_t (*s)[MLKEM_N],uint16_t* upsilon,uint16_t (*u
     }
 }
 
+/*
+Function: K_PKE_KeyGen
+Paramaters: 
+    - Array to contain PKE Encryption Key ekPKE
+    - Array to contain PKE Decryption key dkPKE
+    - Random seed d
+Description:
+    - Generates a PKE key pair as defined in FIPS 203. Uses byte encoding
+    functions from auxiliary.h
+*/
 void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
     //generate rho and sigma
-    uint8_t bytes[KEY_SEED_LEN];
-    memcpy(bytes,d,RANDOM_LEN);
-    bytes[RANDOM_LEN] = K;
-    uint8_t seed[PKE_SEED_KEN];
-    G(seed,bytes,KEY_SEED_LEN);
+    uint8_t sigma[KEY_SEED_LEN];
+    memcpy(sigma,d,RANDOM_LEN);
+    sigma[RANDOM_LEN] = K;
+    uint8_t rho[PKE_SEED_KEN];
+    G(rho,sigma,KEY_SEED_LEN);
 
     //reuse bytes array to store sigma + N
-    memcpy(bytes,seed + RANDOM_LEN,RANDOM_LEN);
-    bytes[RANDOM_LEN] = 0;
+    memcpy(sigma,rho + RANDOM_LEN,RANDOM_LEN);
+    sigma[RANDOM_LEN] = 0;
 
     //generate A,s,e in NTT domain
     uint16_t A[K][K][MLKEM_N];
     uint16_t s[K][MLKEM_N];
     uint16_t e[K][MLKEM_N];
-    generateVariables(seed,bytes,A,s,e,NULL);
+    generateVariables(rho,sigma,A,s,e,NULL);
 
     //generate public key t
     uint16_t t[K][MLKEM_N] = {0};
@@ -142,9 +200,20 @@ void K_PKE_KeyGen(uint8_t* ekPKE, uint8_t* dkPKE, const uint8_t* d){
         byteEncode(ekPKE + POLY_BYTE_LEN*i,t[i],ENCODING_LEN);
         byteEncode(dkPKE + POLY_BYTE_LEN*i,s[i],ENCODING_LEN);
     }
-    memcpy(ekPKE + POLY_BYTE_LEN*K,seed,RANDOM_LEN);
+    memcpy(ekPKE + POLY_BYTE_LEN*K,rho,RANDOM_LEN);
 }
 
+/*
+Function: K_PKE_Encrypt
+Paramaters:
+    - Array to contain ciphertext
+    - PKE Encryption Key
+    - Random message m
+    - Random seed r
+Description:
+    - Generates a ciphertext pair (u,upsilon) from a PKE encryption key, message, and random seed
+    as defined in FIPS 203. Byte encoding/ decoding and compression is pulled from auxiliary.h
+*/
 void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uint8_t* r){
     //seedPRF stores randomness r + counter
     uint8_t seedPRF[KEY_SEED_LEN];
@@ -164,7 +233,7 @@ void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uin
     uint16_t e1[K][MLKEM_N];
     uint16_t e2[MLKEM_N];
     generateVariables(rho,seedPRF,A,y,e1,e2);
-    //U = A^t * y
+    //U = A^t * y + e1
     uint16_t u[K][MLKEM_N] = {0};
     generateU(u,t,A,y,e1);
     //computing upsilon
@@ -184,6 +253,15 @@ void K_PKE_Encrypt(uint8_t* c, const uint8_t* ekPKE, const uint8_t* m, const uin
     return;
 }
 
+/*
+Function: K_PKE_Decrypt
+Parameters:
+    - Array to store decrypted message m
+    - PKE Decryption key
+    - PKE Ciphertext
+Description:
+    Decrypts a message m from a PKE ciphertext as defined in FIPS 203
+*/
 void K_PKE_Decrypt(uint8_t* m, const uint8_t* dkPKE, const uint8_t* c){
     //extract ciphertext
     uint8_t c1 [C_1_LEN];
