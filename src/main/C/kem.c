@@ -1,4 +1,5 @@
 #include "kem.h"
+#include "rng.h"
 
 /*
 Function: ML_KEM_KeyGen_Internal

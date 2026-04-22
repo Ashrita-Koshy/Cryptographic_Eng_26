@@ -1,13 +1,11 @@
-# A SageMath Executable Specification of ML-KEM-1024 with ACVP Validation
+# ML-KEM-1024 Executable Specifications
 
 ## Overview
-This repository provides a high-level executable specification of the ML-KEM-1024 key encapsulation mechanism based on **NIST FIPS 203**.
+This repository contains two executable specifications of ML-KEM-1024 based on NIST FIPS 203:
+- a SageMath implementation for high-level validation
+- a C implementation for low-level execution, ACVP validation, and board-side testing
 
-The implementation is written in **SageMath** to clearly handle polynomial arithmetic (e.g., NTT, modular operations).
-
-In addition to the core algorithm, this repository includes a testing pipeline that verifies:
-- internal functional correctness (mathematical + algorithm level)
-- compliance with **NIST ACVP Known Answer Tests (KATs)**
+The code is organized under `src/main/` with separate folders for each implementation.
 
 ---
 
@@ -15,65 +13,55 @@ In addition to the core algorithm, this repository includes a testing pipeline t
 
 ```
 .
-├── ml_kem.sage
-├── test_ml_kem.sage
-├── test_ml_kem_KATs.sage
-└── known_answers_tests/
-    ├── ML-KEM-keyGen-FIPS203/
-    └── ML-KEM-encapDecap-FIPS203/
-```
-
-### Core Files
-
-- **`ml_kem.sage`**  
-  Core implementation of ML-KEM-1024  
-  - polynomial arithmetic (NTT, compression)  
-  - Kyber-PKE primitives  
-  - key generation, encapsulation, decapsulation  
-
-- **`test_ml_kem.sage`**  
-  Internal validation script  
-  - verifies correctness of individual components  
-  - checks constraints (e.g., compression error bounds from FIPS 203)  
-  - runs full KEM lifecycle (keygen → encap → decap)  
-
-- **`test_ml_kem_KATs.sage`**  
-  ACVP validation script  
-  - parses official NIST test vectors  
-  - validates keygen / encapsulation / decapsulation  
-  - verifies implicit rejection behavior (CCA security requirement)  
-
-- **`known_answers_tests/`**  
-  JSON-formatted ACVP test vectors from NIST  
-  - `ML-KEM-keyGen-FIPS203/` → key generation validation  
-  - `ML-KEM-encapDecap-FIPS203/` → encapsulation/decapsulation validation  
-
----
-
-## Prerequisites
-
-- **SageMath**
-
----
-
-## Usage
-
-### 1. Run Internal Tests
-
-Validates mathematical components and executes a full KEM flow:
-
-```bash
-sage test_ml_kem.sage
+├── src/main/
+│   ├── C/
+│   │   ├── known_answers_tests/
+│   │       ├── ML-KEM-keyGen-FIPS203/
+│   │       └── ML-KEM-encapDecap-FIPS203/
+│   │   ├── README.md
+│   │   ├── aes.c
+│   │   ├── auxiliary.c
+│   │   ├── cJSON.c
+│   │   ├── config.h
+│   │   ├── fips202.c
+│   │   ├── kem.c
+│   │   ├── main.c
+│   │   ├── ntt.c
+│   │   ├── pke.c
+│   │   ├── rng.c
+│   │   └── test_ml_kem_KAT.c
+│   └── sage/
+│       ├── known_answers_tests/
+│           ├── ML-KEM-keyGen-FIPS203/
+│           └── ML-KEM-encapDecap-FIPS203/
+│       ├── README.md
+│       ├── ml_kem.sage
+│       ├── test_ml_kem.sage
+│       └── test_ml_kem_KATs.sage
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-### 2. Run ACVP (KAT) Validation
+## Implementations
 
-Validates implementation against official NIST test vectors:
+### C
+The C implementation supports:
+- ML-KEM-1024 key generation, encapsulation, and decapsulation
+- ACVP Known Answer Test validation
+- board-side execution on the TM4C1294 Connected LaunchPad
 
-```bash
-sage test_ml_kem_KATs.sage
-```
+See:
 
----  
+    src/main/C/README.md
+
+### SageMath
+The SageMath implementation supports:
+- high-level executable specification of ML-KEM-1024
+- internal validation of algorithm behavior
+- ACVP Known Answer Test validation
+
+See:
+
+    src/main/sage/README.md

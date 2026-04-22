@@ -44,9 +44,9 @@ static void aes256_ecb(const uint8_t key[KEYLEN],
     memset(&ctx, 0, sizeof(ctx));
 }
 
-// collect entropy from clock jitter for now
+// collect entropy from ADC-based jitter for now
 // this is just for host-side testing
-// later this part can be replaced with the board-side entropy source
+// later this part can be replaced with the board-specific entropy source
 static uint8_t jitter_one_byte(void)
 {    
     uint8_t byte = 0;
@@ -123,10 +123,7 @@ static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
     memset(tmp, 0, sizeof(tmp));
 }
 
-// initialize drbg
-// if entropy_input is null, collect entropy here for now
-// entropy_input must point to at least 48 bytes if it is not null
-// personalization must also point to at least 48 bytes if it is used
+// initialize drbg state with entropy from jitter
 void randombytes_init()
 {
     //setting the ADC peripheral for temp readins - Nolan - See Section 4 of TivaWare Peripheral Library Guide
