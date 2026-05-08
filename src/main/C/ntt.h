@@ -99,10 +99,3 @@ static inline void multiplyNTT(uint16_t *h, const uint16_t *f, const uint16_t *g
 
 #endif
 
-#pragma FUNC_ALWAYS_INLINE(barrett_reduce)
-static inline int16_t barrett_reduce(int32_t a) {
-    const int32_t v = ((1 << 26) + MLKEM_Q/2) / MLKEM_Q;  
-    int32_t t = ((int64_t)v * a) >> 26;
-    t *= MLKEM_Q;
-    return a - t;
-}

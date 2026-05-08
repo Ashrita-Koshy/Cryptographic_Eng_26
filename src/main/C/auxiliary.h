@@ -115,4 +115,17 @@ static inline void samplePolyCBD(uint16_t* f, const uint8_t* B){
     }
 }
 
+static inline int16_t barrett_reduce(int32_t a) {
+    const int32_t v = ((1 << 26) + MLKEM_Q/2) / MLKEM_Q;
+    int32_t t = ((int64_t)v * a) >> 26;
+    t *= MLKEM_Q;
+    int32_t r = a - t;
+
+    // ensure fully reduced
+    if (r < 0) r += MLKEM_Q;
+    if (r >= MLKEM_Q) r -= MLKEM_Q;
+
+    return (int16_t)r;
+}
+
 #endif
