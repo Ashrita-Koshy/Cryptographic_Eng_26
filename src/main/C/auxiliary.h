@@ -121,7 +121,6 @@ static inline int16_t barrett_reduce(int32_t a) {
     t *= MLKEM_Q;
     int32_t r = a - t;
 
-    // ensure fully reduced
     if (r < 0) r += MLKEM_Q;
     if (r >= MLKEM_Q) r -= MLKEM_Q;
 
