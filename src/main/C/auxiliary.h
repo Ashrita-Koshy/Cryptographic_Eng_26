@@ -35,43 +35,71 @@ static inline uint16_t decompress(uint16_t y, uint8_t d) {
 /*Pretty sure these are only used with d = 12, so could maybe unroll inner for loop, might not be worth it though*/
 /*Also worth noting, since d is probably oonly going to equal 12, can probably get rid of any memory allocation with these bits/bytes related functions*/
 #pragma FUNC_ALWAYS_INLINE(byteEncode)
-static inline void byteEncode(uint8_t* B, const uint16_t* F, uint8_t d){
-    uint8_t* b = malloc(MLKEM_N * d * sizeof(uint8_t));
-    size_t i, j;
-    for(i = 0; i < MLKEM_N; i++){
-        uint16_t a = F[i];
-            for(j = 0; j < d; j++){
-                b[i*d + j] = a & 1;
-                a = (a - b[i*d + j])/2;
-            }
-    }
-    for (i = 0; i < 32*d; i++) {
+static inline void byteEncode(uint8_t* B, const uint16_t* F, uint8_t d)
+{
+    size_t i;
+    size_t j;
+    size_t bit_pos = 0;
+    size_t byte_pos;
+    uint8_t bit_offset;
+    uint16_t coeff;
+    size_t out_len = 32 * d;
+
+    // clear output buffer first
+    for(i = 0; i < out_len; i++)
+    {
         B[i] = 0;
-        for (j = 0; j < 8; j++) {
-            B[i] |= (b[8 * i + j] & 1) << j;
+    }
+
+    // directly pack coefficient bits into output bytes
+    for(i = 0; i < MLKEM_N; i++)
+    {
+        coeff = F[i];
+
+        for(j = 0; j < d; j++)
+        {
+            byte_pos = bit_pos >> 3;
+            bit_offset = bit_pos & 7;
+
+            B[byte_pos] |= (uint8_t)(((coeff >> j) & 1U) << bit_offset);
+
+            bit_pos++;
         }
     }
-    free(b);
 }
 
 #pragma FUNC_ALWAYS_INLINE(byteDecode)
-static inline void byteDecode(uint16_t* F, const uint8_t* B, uint8_t d){
-    uint8_t* b = malloc(32 * d * 8 * sizeof(uint8_t));
-    size_t i, j;
-    for (i = 0; i < 32*d; i++) {
-        for (j = 0; j < 8; j++) {
-            b[8 * i + j] = (B[i] >> j) & 1;
+static inline void byteDecode(uint16_t* F, const uint8_t* B, uint8_t d)
+{
+    size_t i;
+    size_t j;
+    size_t bit_pos = 0;
+    size_t byte_pos;
+    uint8_t bit_offset;
+    uint16_t bit;
+    uint16_t sum;
+    uint16_t m;
+
+    m = (d < 12) ? ((uint16_t)1 << d) : MLKEM_Q;
+
+    // directly unpack bits from input bytes into coefficients
+    for(i = 0; i < MLKEM_N; i++)
+    {
+        sum = 0;
+
+        for(j = 0; j < d; j++)
+        {
+            byte_pos = bit_pos >> 3;
+            bit_offset = bit_pos & 7;
+
+            bit = (uint16_t)((B[byte_pos] >> bit_offset) & 1U);
+            sum |= (uint16_t)(bit << j);
+
+            bit_pos++;
         }
-    }
-    uint16_t m = m = (d < 12) ? ((uint16_t)1 << d) : MLKEM_Q;
-    for(i = 0; i < MLKEM_N; i++){
-        uint16_t sum = 0;
-        for(j = 0; j < d; j++){
-            sum += (uint16_t)b[i*d + j] << j;
-        }
+
         F[i] = sum % m;
     }
-    free(b);
 }
 
 #pragma FUNC_ALWAYS_INLINE(sampleNTT)
