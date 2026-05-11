@@ -1,5 +1,4 @@
 #include "rng.h"
-#include "aes.h"
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -7,46 +6,31 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/adc.h"
 #include "inc/hw_adc.h"
+#include "inc/hw_aes.h"
+#include "inc/hw_ints.h"
+#include "driverlib/aes.h"
 
 #define KEYLEN   32
 #define BLOCKLEN 16
 #define SEEDLEN  (KEYLEN + BLOCKLEN)   // 48
+#define KEYLEN_32 KEYLEN / 4
+#define BLOCKLEN_32 BLOCKLEN / 4
 
 // drbg internal state
+// updated to reflect expected array for AES hardware module - Nolan
+// per TivaWare Peripheral Library Section 5
 typedef struct {
-    uint8_t key[KEYLEN];
-    uint8_t v[BLOCKLEN];
+    uint32_t key[KEYLEN_32];
+    uint32_t v[BLOCKLEN_32];
     int     reseed_counter;
 } CTR_DRBG_STATE;
 
 static CTR_DRBG_STATE drbg;
 static int drbg_initialized = 0;
 
-
-// tiny-AES-c wrapper
-// tiny-AES-c ecb works in-place, so copy in to out first
-static void aes256_ecb(const uint8_t key[KEYLEN],
-                       const uint8_t in[BLOCKLEN],
-                       uint8_t       out[BLOCKLEN])
-{
-    struct AES_ctx ctx;
-
-    // initialize aes context with the given key
-    AES_init_ctx(&ctx, key);
-
-    // copy input block first because tiny-AES-c encrypts in-place
-    memcpy(out, in, BLOCKLEN);
-
-    // encrypt one 16-byte block
-    AES_ECB_encrypt(&ctx, out);
-
-    // clear aes context
-    memset(&ctx, 0, sizeof(ctx));
-}
-
-// collect entropy from ADC-based jitter for now
+// collect entropy from clock jitter for now
 // this is just for host-side testing
-// later this part can be replaced with the board-specific entropy source
+// later this part can be replaced with the board-side entropy source
 static uint8_t jitter_one_byte(void)
 {    
     uint8_t byte = 0;
@@ -83,12 +67,11 @@ static void collect_entropy(uint8_t *buf, size_t len)
     }
 }
 
-// increase v by 1 as a big-endian counter
-static void increment_v(uint8_t v[BLOCKLEN])
+// increase v by 1 - Nolan
+static void increment_v(uint32_t* v)
 {
-    // start from the last byte and carry backward if needed
     int i;
-    for (i = BLOCKLEN - 1; i >= 0; i--) {
+    for (i = BLOCKLEN_32 - 1; i >= 0; i--) {
         if (++v[i] != 0)
             break;
     }
@@ -96,16 +79,17 @@ static void increment_v(uint8_t v[BLOCKLEN])
 
 // ctr_drbg update
 // makes new key and new v from current state + provided_data
-static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
+static void ctr_drbg_update(const uint8_t* provided_data,
                             CTR_DRBG_STATE *ctx)
 {
     uint8_t tmp[SEEDLEN];
     int pos = 0;
-
     // generate 48 bytes total using aes(key, v), aes(key, v+1), ...
     while (pos < SEEDLEN) {
         increment_v(ctx->v);
-        aes256_ecb(ctx->key, ctx->v, tmp + pos);
+        uint32_t block[BLOCKLEN_32];
+        AESDataProcess(AES_BASE, ctx->v, block, BLOCKLEN);
+        memcpy(tmp + pos, block, BLOCKLEN);
         pos += BLOCKLEN;
     }
 
@@ -116,6 +100,9 @@ static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
     // first 32 bytes become the new key
     memcpy(ctx->key, tmp, KEYLEN);
 
+    //setting the key
+    AESKey1Set(AES_BASE, ctx->key,  AES_CFG_KEY_SIZE_256BIT);
+    
     // last 16 bytes become the new v
     memcpy(ctx->v, tmp + KEYLEN, BLOCKLEN);
 
@@ -123,7 +110,10 @@ static void ctr_drbg_update(const uint8_t provided_data[SEEDLEN],
     memset(tmp, 0, sizeof(tmp));
 }
 
-// initialize drbg state with entropy from jitter
+// initialize drbg
+// if entropy_input is null, collect entropy here for now
+// entropy_input must point to at least 48 bytes if it is not null
+// personalization must also point to at least 48 bytes if it is used
 void randombytes_init()
 {
     //setting the ADC peripheral for temp readins - Nolan - See Section 4 of TivaWare Peripheral Library Guide
@@ -136,12 +126,23 @@ void randombytes_init()
         ADC_CTL_TS | ADC_CTL_IE | ADC_CTL_END);
     ADCSequenceEnable(ADC0_BASE, 3);
     ADCIntClear(ADC0_BASE, 3);
+
+    //setting the CCM peripheral for AES - Nolan - See Section 5 of TivaWare Peripheral Library Guide
+    //usage is based on exampke provided in guide
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_CCM0);
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_CCM0))
+    {
+    }
+    AESReset(AES_BASE);
+    AESConfigSet(AES_BASE, AES_CFG_DIR_ENCRYPT | AES_CFG_MODE_ECB | AES_CFG_KEY_SIZE_256BIT);
     
     uint8_t seed_material[SEEDLEN];
 
     // start from all-zero key and v
     memset(drbg.key, 0, KEYLEN);
     memset(drbg.v,   0, BLOCKLEN);
+    //setting the key
+    AESKey1Set(AES_BASE, drbg.key,  AES_CFG_KEY_SIZE_256BIT);
 
     collect_entropy(seed_material, SEEDLEN);
 
@@ -165,16 +166,17 @@ int randombytes(unsigned char *buf, unsigned long long len)
         return -1;
 
     // fail if drbg has not been initialized yet
-    if ((!drbg_initialized || !SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0)))
+    if ((!drbg_initialized || !SysCtlPeripheralReady(SYSCTL_PERIPH_ADC0) || !SysCtlPeripheralReady(SYSCTL_PERIPH_CCM0)))
         return -1;
 
-    uint8_t block[BLOCKLEN];
+    uint32_t block[BLOCKLEN_32];
     unsigned long long offset = 0;
 
     // keep generating 16-byte blocks until len is filled
     while (offset < len) {
         increment_v(drbg.v);
-        aes256_ecb(drbg.key, drbg.v, block);
+        //replaced with AES hardware mode - Nolan
+        AESDataProcess(AES_BASE, drbg.v, block, BLOCKLEN);
 
         // copy either a full block or the remaining bytes
         unsigned long long chunk = len - offset;
