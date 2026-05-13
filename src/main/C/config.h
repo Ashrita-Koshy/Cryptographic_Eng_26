@@ -29,5 +29,9 @@
 #define KEY_SIZE_ERROR -2
 #define MALFORMED_KEY_ERROR -3
 #define CIPHERTEXT_SIZE_ERROR -4
+#define R 65536
+#define R_INV 169
+#define MONT_K ((R*(R_INV % MLKEM_Q) - 1) / MLKEM_Q)
+#define R_B 5039
 
 #endif

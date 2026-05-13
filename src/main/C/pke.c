@@ -61,7 +61,10 @@ void generatePublicKey(uint16_t (*t)[MLKEM_N], uint16_t (*A)[K][MLKEM_N], uint16
             uint16_t h[MLKEM_N];
             multiplyNTT(h,A[i][j],s[j]);
             for(k = 0; k < MLKEM_N; k++){
-                t[i][k] = (t[i][k] + h[k]) % MLKEM_Q;
+                t[i][k] = (t[i][k] + h[k]);
+                if(t[i][k] >= MLKEM_Q){
+                    t[i][k] -= MLKEM_Q;
+                }
             }
         }
     }
@@ -90,7 +93,10 @@ void generateU(uint16_t (*u)[MLKEM_N],uint16_t (*t)[MLKEM_N],uint16_t (*A)[K][ML
             uint16_t h[MLKEM_N];
             multiplyNTT(h,A[j][i],y[j]);
             for(k = 0; k < MLKEM_N; k++){
-                u[i][k] = (u[i][k] + h[k]) % MLKEM_Q;
+                u[i][k] = (u[i][k] + h[k]);
+                if(u[i][k] >= MLKEM_Q){
+                    u[i][k] -= MLKEM_Q;
+                }
             }
         }
         nttInverse(u[i]);
