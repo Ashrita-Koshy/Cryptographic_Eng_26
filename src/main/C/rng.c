@@ -9,7 +9,6 @@
 #include "inc/hw_aes.h"
 #include "inc/hw_ints.h"
 #include "driverlib/aes.h"
-#include "driverlib/timer.h"
 
 #define KEYLEN   32
 #define BLOCKLEN 16
@@ -30,8 +29,6 @@ static CTR_DRBG_STATE drbg;
 static int drbg_initialized = 0;
 
 // collect entropy from clock jitter for now
-// this is just for host-side testing
-// later this part can be replaced with the board-side entropy source
 static uint8_t jitter_one_byte(void)
 {    
     uint8_t byte = 0;
